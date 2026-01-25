@@ -1,0 +1,1610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Strategy P&L Analyzer</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0e17;
+            --bg-secondary: #111827;
+            --bg-card: #1a2234;
+            --accent-cyan: #06d6a0;
+            --accent-magenta: #ef476f;
+            --accent-yellow: #ffd166;
+            --accent-blue: #118ab2;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --border-color: #2d3748;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Sora', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            background-image: 
+                radial-gradient(ellipse at 10% 20%, rgba(6, 214, 160, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 90% 80%, rgba(239, 71, 111, 0.08) 0%, transparent 50%),
+                linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+        }
+        
+        .container {
+            max-width: 1500px;
+            margin: 0 auto;
+            padding: 30px;
+        }
+        
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        h1 {
+            font-size: 28px;
+            font-weight: 600;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .refresh-btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Sora', sans-serif;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .refresh-btn:hover {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+        }
+        
+        /* Tab Navigation Container */
+        .tab-nav-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        
+        /* Tab Navigation */
+        .tab-nav {
+            display: flex;
+            gap: 5px;
+            background: var(--bg-card);
+            padding: 6px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            width: fit-content;
+        }
+        
+        /* Filters Row */
+        .filters-row {
+            display: flex;
+            align-items: center;
+            gap: 25px;
+        }
+        
+        .filter-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        /* Date Selector */
+        .date-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .date-selector select {
+            padding: 10px 15px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.2s;
+        }
+        
+        .date-selector select:hover {
+            border-color: var(--accent-cyan);
+        }
+        
+        .date-selector select:focus {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 0 2px rgba(6, 214, 160, 0.2);
+        }
+        
+        .date-selector select option {
+            background: var(--bg-card);
+            color: var(--text-primary);
+        }
+        
+        /* Increment Selector */
+        .increment-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .increment-options {
+            display: flex;
+            gap: 5px;
+            background: var(--bg-card);
+            padding: 4px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .increment-btn {
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        
+        .increment-btn:hover {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .increment-btn.active {
+            background: var(--accent-cyan);
+            color: var(--bg-primary);
+            font-weight: 600;
+        }
+        
+        .tab-btn {
+            padding: 12px 30px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-family: 'Sora', sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        
+        .tab-btn:hover {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .tab-btn.active {
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+            color: var(--bg-primary);
+            font-weight: 600;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .slider-section {
+            background: var(--bg-card);
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .slider-label {
+            font-weight: 500;
+            color: var(--text-secondary);
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .time-display {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 24px;
+            color: var(--accent-cyan);
+            font-weight: 600;
+        }
+        
+        #timeSlider {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: var(--bg-secondary);
+            outline: none;
+            -webkit-appearance: none;
+            cursor: pointer;
+        }
+        
+        #timeSlider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(6, 214, 160, 0.5);
+            transition: transform 0.2s;
+        }
+        
+        #timeSlider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+        
+        #timeSlider::-moz-range-thumb {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+            cursor: pointer;
+            border: none;
+        }
+        
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 25px;
+            margin-bottom: 25px;
+        }
+        
+        .left-column {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+        
+        .card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 25px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .card-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .chart-container {
+            height: 400px;
+            position: relative;
+        }
+        
+        .info-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .signal-container {
+            text-align: center;
+            padding: 20px;
+            background: var(--bg-secondary);
+            border-radius: 10px;
+        }
+        
+        .signal-badge {
+            display: inline-block;
+            padding: 12px 40px;
+            border-radius: 30px;
+            font-weight: 700;
+            font-size: 20px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+        
+        .signal-buy {
+            background: linear-gradient(135deg, rgba(6, 214, 160, 0.2), rgba(6, 214, 160, 0.1));
+            color: var(--accent-cyan);
+            border: 2px solid var(--accent-cyan);
+            box-shadow: 0 0 30px rgba(6, 214, 160, 0.3);
+        }
+        
+        .signal-sell {
+            background: linear-gradient(135deg, rgba(239, 71, 111, 0.2), rgba(239, 71, 111, 0.1));
+            color: var(--accent-magenta);
+            border: 2px solid var(--accent-magenta);
+            box-shadow: 0 0 30px rgba(239, 71, 111, 0.3);
+        }
+        
+        .signal-reason {
+            margin-top: 10px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        
+        .info-label {
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+        
+        .info-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .event-timeline {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .event-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+        }
+        
+        .event-order {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 14px;
+        }
+        
+        .event-order.first {
+            background: var(--accent-cyan);
+            color: var(--bg-primary);
+        }
+        
+        .event-order.second {
+            background: var(--accent-yellow);
+            color: var(--bg-primary);
+        }
+        
+        .event-details {
+            flex: 1;
+        }
+        
+        .event-type {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+        
+        .event-time {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .event-values {
+            text-align: right;
+        }
+        
+        .event-prediction {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .event-actual {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            font-size: 16px;
+        }
+        
+        .strategies-section {
+            background: var(--bg-card);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+        
+        .strategies-header {
+            padding: 20px 25px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th {
+            background: var(--bg-secondary);
+            padding: 14px 20px;
+            text-align: left;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        
+        th.text-center {
+            text-align: center;
+        }
+        
+        td {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 14px;
+        }
+        
+        td.text-center {
+            text-align: center;
+        }
+        
+        tr:last-child td {
+            border-bottom: none;
+        }
+        
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+        
+        .strategy-name {
+            font-weight: 600;
+            color: var(--accent-blue);
+        }
+        
+        .strategy-desc {
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+        
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .pnl-positive {
+            color: var(--accent-cyan);
+            font-weight: 700;
+        }
+        
+        .pnl-negative {
+            color: var(--accent-magenta);
+            font-weight: 700;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border-color);
+            border-top-color: var(--accent-cyan);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .diff-value {
+            padding: 4px 12px;
+            border-radius: 4px;
+            background: rgba(255, 209, 102, 0.15);
+            color: var(--accent-yellow);
+        }
+        
+        /* Summary Table Styles */
+        .summary-section {
+            background: var(--bg-card);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+        
+        .summary-header {
+            padding: 25px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .summary-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        
+        .summary-subtitle {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 5px;
+        }
+        
+        .summary-table-wrapper {
+            overflow-x: auto;
+        }
+        
+        .summary-table th {
+            position: sticky;
+            top: 0;
+            white-space: nowrap;
+        }
+        
+        .summary-table td {
+            white-space: nowrap;
+        }
+        
+        .total-row {
+            background: var(--bg-secondary) !important;
+            font-weight: 700;
+        }
+        
+        .total-row td {
+            border-top: 2px solid var(--accent-blue);
+            font-size: 15px;
+        }
+        
+        .signal-mini {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .signal-mini.buy {
+            background: rgba(6, 214, 160, 0.2);
+            color: var(--accent-cyan);
+        }
+        
+        .signal-mini.sell {
+            background: rgba(239, 71, 111, 0.2);
+            color: var(--accent-magenta);
+        }
+        
+        /* Column Selector Styles */
+        .column-selector {
+            position: relative;
+        }
+        
+        .column-toggle-btn {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 10px 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Sora', sans-serif;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        
+        .column-toggle-btn:hover {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+        }
+        
+        .column-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 8px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 15px;
+            min-width: 200px;
+            z-index: 1000;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+        }
+        
+        .column-dropdown.show {
+            display: block;
+        }
+        
+        .column-dropdown-header {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .column-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 0;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text-primary);
+            transition: color 0.2s;
+        }
+        
+        .column-checkbox:hover {
+            color: var(--accent-cyan);
+        }
+        
+        .column-checkbox input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--accent-cyan);
+            cursor: pointer;
+        }
+        
+        .col-hidden {
+            display: none !important;
+        }
+        
+        .grand-total-card {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            padding: 25px;
+            background: var(--bg-secondary);
+        }
+        
+        .total-item {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            border: 1px solid var(--border-color);
+        }
+        
+        .total-item-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        
+        .total-item-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 22px;
+            font-weight: 700;
+        }
+        
+        @media (max-width: 1200px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Trading Strategy P&L Analyzer</h1>
+            <div class="header-actions">
+                <button class="refresh-btn" onclick="refreshData()">↻ Refresh Data</button>
+            </div>
+        </header>
+        
+        <!-- Tab Navigation and Increment Selector -->
+        <div class="tab-nav-container">
+            <div class="tab-nav">
+                <button class="tab-btn active" onclick="switchTab('analysis')">📈 Analysis</button>
+                <button class="tab-btn" onclick="switchTab('summary')">📋 P&L Summary</button>
+            </div>
+            <div class="filters-row">
+                <div class="date-selector">
+                    <span class="filter-label">Date:</span>
+                    <select id="dateSelect" onchange="setDate(this.value)">
+                        <option value="">Loading...</option>
+                    </select>
+                </div>
+                <div class="increment-selector">
+                    <span class="filter-label">Step:</span>
+                    <div class="increment-options">
+                        <button class="increment-btn" data-increment="5" onclick="setIncrement(5)">5 min</button>
+                        <button class="increment-btn" data-increment="10" onclick="setIncrement(10)">10 min</button>
+                        <button class="increment-btn active" data-increment="15" onclick="setIncrement(15)">15 min</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Analysis Tab -->
+        <div id="tab-analysis" class="tab-content active">
+            <div class="slider-section">
+                <div class="slider-header">
+                    <span class="slider-label">Select 15-Minute Window</span>
+                    <span class="time-display" id="timeDisplay">Loading...</span>
+                </div>
+                <input type="range" id="timeSlider" min="0" max="0" value="0" step="1">
+            </div>
+            
+            <div class="main-grid">
+                <div class="left-column">
+                    <div class="card">
+                        <div class="card-title">Prediction Chart</div>
+                        <div class="chart-container">
+                            <canvas id="predictionChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="strategies-section">
+                        <div class="strategies-header">
+                            <div class="card-title" style="margin: 0; padding: 0; border: none;">Strategy Performance</div>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Strategy</th>
+                                    <th>Description</th>
+                                    <th>Entry Time</th>
+                                    <th>Entry Value</th>
+                                    <th>Exit Time</th>
+                                    <th>Exit Value</th>
+                                    <th>P&L</th>
+                                </tr>
+                            </thead>
+                            <tbody id="strategiesTable">
+                                <tr>
+                                    <td colspan="7" class="loading">
+                                        <span class="loading-spinner"></span>Loading strategies...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="info-panel">
+                    <div class="card">
+                        <div class="card-title">Trading Signal</div>
+                        <div id="signalInfo" class="loading">
+                            <span class="loading-spinner"></span>Analyzing...
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-title">Time-Ordered Events</div>
+                        <div id="eventsInfo" class="loading">
+                            <span class="loading-spinner"></span>Loading events...
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-title">Min/Max Analysis</div>
+                        <div id="minMaxInfo" class="loading">
+                            <span class="loading-spinner"></span>Loading...
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-title">Normalized Touch Analysis</div>
+                        <div id="normTouchInfo" class="loading">
+                            <span class="loading-spinner"></span>Loading...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Summary Tab -->
+        <div id="tab-summary" class="tab-content">
+            <div class="summary-section">
+                <div class="summary-header">
+                    <div>
+                        <div class="summary-title">Strategy P&L Summary</div>
+                        <div class="summary-subtitle">All time windows with strategy performance</div>
+                    </div>
+                    <div class="column-selector">
+                        <button class="column-toggle-btn" onclick="toggleColumnSelector()">⚙️ Columns</button>
+                        <div class="column-dropdown" id="columnDropdown">
+                            <div class="column-dropdown-header">Show/Hide Columns</div>
+                            <label class="column-checkbox">
+                                <input type="checkbox" id="col-pred_diff" checked onchange="updateColumnVisibility()">
+                                <span>Pred Diff</span>
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" id="col-signal" checked onchange="updateColumnVisibility()">
+                                <span>Signal</span>
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" id="col-strategy_1" checked onchange="updateColumnVisibility()">
+                                <span>Min/Max Exit</span>
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" id="col-strategy_2_1min" checked onchange="updateColumnVisibility()">
+                                <span>Exit 1min</span>
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" id="col-strategy_2_2min" checked onchange="updateColumnVisibility()">
+                                <span>Exit 2min</span>
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" id="col-strategy_2_3min" checked onchange="updateColumnVisibility()">
+                                <span>Exit 3min</span>
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" id="col-strategy_2_4min" checked onchange="updateColumnVisibility()">
+                                <span>Exit 4min</span>
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" id="col-strategy_2_5min" checked onchange="updateColumnVisibility()">
+                                <span>Exit 5min</span>
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" id="col-strategy_2_6min" checked onchange="updateColumnVisibility()">
+                                <span>Exit 6min</span>
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" id="col-strategy_3_2pt" checked onchange="updateColumnVisibility()">
+                                <span>2pt Target</span>
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" id="col-strategy_3_3pt" checked onchange="updateColumnVisibility()">
+                                <span>3pt Target</span>
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" id="col-strategy_norm_touch_max" checked onchange="updateColumnVisibility()">
+                                <span>Norm Touch Max</span>
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" id="col-strategy_norm_touch_min" checked onchange="updateColumnVisibility()">
+                                <span>Norm Touch Min</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="summary-table-wrapper">
+                    <table class="summary-table" id="summaryTableEl">
+                        <thead id="summaryTableHead">
+                            <tr>
+                                <th>Time Window</th>
+                                <th class="text-center" data-col="pred_diff">Pred Diff</th>
+                                <th class="text-center" data-col="signal">Signal</th>
+                                <th class="text-center" data-col="strategy_1">Min/Max Exit</th>
+                                <th class="text-center" data-col="strategy_2_1min">Exit 1min</th>
+                                <th class="text-center" data-col="strategy_2_2min">Exit 2min</th>
+                                <th class="text-center" data-col="strategy_2_3min">Exit 3min</th>
+                                <th class="text-center" data-col="strategy_2_4min">Exit 4min</th>
+                                <th class="text-center" data-col="strategy_2_5min">Exit 5min</th>
+                                <th class="text-center" data-col="strategy_2_6min">Exit 6min</th>
+                                <th class="text-center" data-col="strategy_3_2pt">2pt Target</th>
+                                <th class="text-center" data-col="strategy_3_3pt">3pt Target</th>
+                                <th class="text-center" data-col="strategy_norm_touch_max">Norm Max</th>
+                                <th class="text-center" data-col="strategy_norm_touch_min">Norm Min</th>
+                            </tr>
+                        </thead>
+                        <tbody id="summaryTable">
+                            <tr>
+                                <td colspan="14" class="loading">
+                                    <span class="loading-spinner"></span>Loading summary...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let chart = null;
+        let windows = [];
+        let strategies = {};
+        let summaryLoaded = false;
+        let summaryData = null;
+        let currentIncrement = 15;
+        let currentDate = null;
+        
+        // Date selector function
+        async function loadDates() {
+            try {
+                const response = await fetch('/api/dates');
+                const data = await response.json();
+                
+                const select = document.getElementById('dateSelect');
+                select.innerHTML = '';
+                
+                data.dates.forEach(date => {
+                    const option = document.createElement('option');
+                    option.value = date;
+                    option.textContent = date;
+                    if (date === data.current_date) {
+                        option.selected = true;
+                        currentDate = date;
+                    }
+                    select.appendChild(option);
+                });
+                
+                // Set current date if not already set
+                if (!currentDate && data.dates.length > 0) {
+                    currentDate = data.dates[0];
+                }
+            } catch (error) {
+                console.error('Failed to load dates:', error);
+            }
+        }
+        
+        function setDate(date) {
+            currentDate = date;
+            summaryLoaded = false;
+            
+            // Reload all data for the new date
+            loadWindows().then(() => {
+                updateAnalysis();
+                // Reload summary if on summary tab
+                if (document.getElementById('tab-summary').classList.contains('active')) {
+                    loadSummary();
+                }
+            });
+        }
+        
+        // Increment selector function
+        function setIncrement(minutes) {
+            currentIncrement = minutes;
+            
+            // Update button states
+            document.querySelectorAll('.increment-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (parseInt(btn.dataset.increment) === minutes) {
+                    btn.classList.add('active');
+                }
+            });
+            
+            // Reload windows and data
+            summaryLoaded = false;
+            loadWindows().then(() => {
+                updateAnalysis();
+                // Reload summary if on summary tab
+                if (document.getElementById('tab-summary').classList.contains('active')) {
+                    loadSummary();
+                }
+            });
+        }
+        
+        // Column selector functions
+        function toggleColumnSelector() {
+            const dropdown = document.getElementById('columnDropdown');
+            dropdown.classList.toggle('show');
+        }
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const dropdown = document.getElementById('columnDropdown');
+            const button = document.querySelector('.column-toggle-btn');
+            if (dropdown && !dropdown.contains(event.target) && !button.contains(event.target)) {
+                dropdown.classList.remove('show');
+            }
+        });
+        
+        function updateColumnVisibility() {
+            const columns = ['pred_diff', 'signal', 'strategy_1', 'strategy_2_1min', 'strategy_2_2min', 'strategy_2_3min', 'strategy_2_4min', 'strategy_2_5min', 'strategy_2_6min', 'strategy_3_2pt', 'strategy_3_3pt', 'strategy_norm_touch_max', 'strategy_norm_touch_min'];
+            
+            columns.forEach(col => {
+                const checkbox = document.getElementById(`col-${col}`);
+                const isVisible = checkbox ? checkbox.checked : true;
+                
+                // Update header
+                const headerCells = document.querySelectorAll(`th[data-col="${col}"]`);
+                headerCells.forEach(cell => {
+                    cell.classList.toggle('col-hidden', !isVisible);
+                });
+                
+                // Update data cells
+                const dataCells = document.querySelectorAll(`td[data-col="${col}"]`);
+                dataCells.forEach(cell => {
+                    cell.classList.toggle('col-hidden', !isVisible);
+                });
+            });
+        }
+        
+        // Tab switching
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+            
+            // Load summary data if switching to summary tab
+            if (tabName === 'summary' && !summaryLoaded) {
+                loadSummary();
+            }
+        }
+        
+        // Initialize
+        async function init() {
+            await loadDates();
+            await loadWindows();
+            await loadStrategies();
+            updateAnalysis();
+        }
+        
+        async function loadWindows() {
+            try {
+                const dateParam = currentDate ? `&date=${currentDate}` : '';
+                const response = await fetch(`/api/windows?increment=${currentIncrement}${dateParam}`);
+                const data = await response.json();
+                windows = data.windows;
+                
+                const slider = document.getElementById('timeSlider');
+                slider.max = Math.max(0, windows.length - 1);
+                slider.value = 0;
+                
+                updateTimeDisplay();
+            } catch (error) {
+                console.error('Failed to load windows:', error);
+            }
+        }
+        
+        async function loadStrategies() {
+            try {
+                const response = await fetch('/api/strategies');
+                strategies = await response.json();
+            } catch (error) {
+                console.error('Failed to load strategies:', error);
+            }
+        }
+        
+        async function loadSummary() {
+            try {
+                const dateParam = currentDate ? `&date=${currentDate}` : '';
+                const response = await fetch(`/api/summary?increment=${currentIncrement}${dateParam}`);
+                const data = await response.json();
+                
+                updateSummaryTable(data);
+                summaryLoaded = true;
+            } catch (error) {
+                console.error('Failed to load summary:', error);
+            }
+        }
+        
+        function updateSummaryTable(data) {
+            const tbody = document.getElementById('summaryTable');
+            summaryData = data;
+            let html = '';
+            
+            // Data rows
+            for (const row of data.rows) {
+                const signalClass = row.signal === 'BUY' ? 'buy' : 'sell';
+                const diff = row.difference;
+                
+                html += `<tr>`;
+                html += `<td class="mono">${row.time_window}</td>`;
+                html += `<td class="text-center mono diff-value" data-col="pred_diff">${diff !== null ? diff.toFixed(2) : '-'}</td>`;
+                html += `<td class="text-center" data-col="signal"><span class="signal-mini ${signalClass}">${row.signal || '-'}</span></td>`;
+                
+                for (const key of data.strategy_keys) {
+                    const pnl = row.strategies[key];
+                    if (pnl !== null) {
+                        const pnlClass = pnl >= 0 ? 'pnl-positive' : 'pnl-negative';
+                        const sign = pnl >= 0 ? '+' : '';
+                        html += `<td class="text-center mono ${pnlClass}" data-col="${key}">${sign}${pnl.toFixed(2)}</td>`;
+                    } else {
+                        html += `<td class="text-center" data-col="${key}" style="color: var(--text-secondary);">-</td>`;
+                    }
+                }
+                
+                html += `</tr>`;
+            }
+            
+            // Total row
+            html += `<tr class="total-row">`;
+            html += `<td><strong>GRAND TOTAL</strong></td>`;
+            html += `<td data-col="pred_diff"></td>`;
+            html += `<td data-col="signal"></td>`;
+            
+            for (const key of data.strategy_keys) {
+                const total = data.totals[key];
+                const pnlClass = total >= 0 ? 'pnl-positive' : 'pnl-negative';
+                const sign = total >= 0 ? '+' : '';
+                html += `<td class="text-center mono ${pnlClass}" data-col="${key}">${sign}${total.toFixed(2)}</td>`;
+            }
+            
+            html += `</tr>`;
+            
+            tbody.innerHTML = html;
+            
+            // Apply current column visibility
+            updateColumnVisibility();
+        }
+        
+        function updateTimeDisplay() {
+            const slider = document.getElementById('timeSlider');
+            const window = windows[slider.value];
+            if (window) {
+                document.getElementById('timeDisplay').textContent = window.label;
+            }
+        }
+        
+        async function updateAnalysis() {
+            const slider = document.getElementById('timeSlider');
+            const windowIdx = slider.value;
+            
+            try {
+                const dateParam = currentDate ? `&date=${currentDate}` : '';
+                const response = await fetch(`/api/analyze?window=${windowIdx}&increment=${currentIncrement}${dateParam}`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    showError(data.error);
+                    return;
+                }
+                
+                updateChart(data);
+                updateSignalInfo(data);
+                updateEventsInfo(data);
+                updateMinMaxInfo(data);
+                updateNormTouchInfo(data);
+                updateStrategiesTable(data);
+            } catch (error) {
+                console.error('Failed to load analysis:', error);
+            }
+        }
+        
+        function updateChart(data) {
+            const ctx = document.getElementById('predictionChart').getContext('2d');
+            
+            if (chart) {
+                chart.destroy();
+            }
+            
+            // Build combined labels: actuals (before) + predictions
+            const actualsLabels = (data.actuals_before || []).map(a => {
+                const d = new Date(a.time);
+                return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            });
+            const predictionsLabels = data.predictions.map(p => {
+                const d = new Date(p.time);
+                return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            });
+            
+            // Combined labels
+            const allLabels = [...actualsLabels, ...predictionsLabels];
+            
+            // Actuals data: values for actuals positions, null for predictions positions
+            const actualsData = (data.actuals_before || []).map(a => a.value);
+            const actualsWithNulls = [...actualsData, ...Array(data.predictions.length).fill(null)];
+            
+            // Calculate average of last 5 actual values for Y-axis range
+            const last5Actuals = actualsData.slice(-5);
+            const actualsAvg = last5Actuals.length > 0 
+                ? last5Actuals.reduce((sum, val) => sum + val, 0) / last5Actuals.length 
+                : 0;
+            const y1Min = actualsAvg - 50;
+            const y1Max = actualsAvg + 50;
+            
+            // Predictions data: null for actuals positions, values for predictions positions
+            const predictionsData = data.predictions.map(p => p.value);
+            const predictionsWithNulls = [...Array(actualsLabels.length).fill(null), ...predictionsData];
+            
+            // Min/Max horizontal lines (only in predictions area)
+            const minValue = data.min_prediction.value;
+            const maxValue = data.max_prediction.value;
+            const minLine = [...Array(actualsLabels.length).fill(null), ...Array(data.predictions.length).fill(minValue)];
+            const maxLine = [...Array(actualsLabels.length).fill(null), ...Array(data.predictions.length).fill(maxValue)];
+            
+            const gradient = ctx.createLinearGradient(0, 0, 0, 350);
+            gradient.addColorStop(0, 'rgba(6, 214, 160, 0.3)');
+            gradient.addColorStop(1, 'rgba(6, 214, 160, 0)');
+            
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: allLabels,
+                    datasets: [
+                        {
+                            label: 'Actuals (5min before)',
+                            data: actualsWithNulls,
+                            borderColor: '#ff9f1c',
+                            backgroundColor: 'rgba(255, 159, 28, 0.1)',
+                            tension: 0.4,
+                            fill: false,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            pointBackgroundColor: '#ff9f1c',
+                            pointBorderColor: '#0a0e17',
+                            pointBorderWidth: 2,
+                            yAxisID: 'y1',
+                            spanGaps: false
+                        },
+                        {
+                            label: 'Predictions',
+                            data: predictionsWithNulls,
+                            borderColor: '#06d6a0',
+                            backgroundColor: gradient,
+                            tension: 0.4,
+                            fill: true,
+                            pointRadius: 5,
+                            pointHoverRadius: 8,
+                            pointBackgroundColor: '#06d6a0',
+                            pointBorderColor: '#0a0e17',
+                            pointBorderWidth: 2,
+                            yAxisID: 'y',
+                            spanGaps: false
+                        },
+                        {
+                            label: 'Pred Max',
+                            data: maxLine,
+                            borderColor: '#118ab2',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            pointRadius: 0,
+                            fill: false,
+                            yAxisID: 'y',
+                            spanGaps: true
+                        },
+                        {
+                            label: 'Pred Min',
+                            data: minLine,
+                            borderColor: '#118ab2',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            pointRadius: 0,
+                            fill: false,
+                            yAxisID: 'y',
+                            spanGaps: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                color: '#94a3b8',
+                                font: { family: 'Sora', size: 11 },
+                                boxWidth: 12,
+                                padding: 15
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(26, 34, 52, 0.95)',
+                            titleFont: { family: 'Sora' },
+                            bodyFont: { family: 'JetBrains Mono' },
+                            borderColor: 'rgba(255,255,255,0.1)',
+                            borderWidth: 1
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)'
+                            },
+                            ticks: {
+                                color: '#94a3b8',
+                                font: { family: 'JetBrains Mono', size: 10 },
+                                maxRotation: 45
+                            }
+                        },
+                        y: {
+                            type: 'linear',
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Predictions',
+                                color: '#06d6a0',
+                                font: { family: 'Sora', size: 11 }
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)'
+                            },
+                            ticks: {
+                                color: '#06d6a0',
+                                font: { family: 'JetBrains Mono' }
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            position: 'right',
+                            min: y1Min,
+                            max: y1Max,
+                            title: {
+                                display: true,
+                                text: `Actuals (avg ±50)`,
+                                color: '#ff9f1c',
+                                font: { family: 'Sora', size: 11 }
+                            },
+                            grid: {
+                                drawOnChartArea: false
+                            },
+                            ticks: {
+                                color: '#ff9f1c',
+                                font: { family: 'JetBrains Mono' },
+                                callback: function(value) {
+                                    return value.toFixed(0);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function updateSignalInfo(data) {
+            const signalClass = data.signal_time_based === 'BUY' ? 'signal-buy' : 'signal-sell';
+            document.getElementById('signalInfo').innerHTML = `
+                <div class="signal-container">
+                    <span class="signal-badge ${signalClass}">${data.signal_time_based}</span>
+                    <div class="signal-reason">
+                        ${data.signal_time_based === 'BUY' 
+                            ? 'Min occurred first → Buy Low, Sell High' 
+                            : 'Max occurred first → Sell High, Buy Low'}
+                    </div>
+                </div>
+                <div class="info-row" style="margin-top: 15px;">
+                    <span class="info-label">Prediction Difference</span>
+                    <span class="info-value diff-value">${data.difference.toFixed(2)}</span>
+                </div>
+            `;
+        }
+        
+        function updateEventsInfo(data) {
+            const formatTime = (isoString) => {
+                const d = new Date(isoString);
+                return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            };
+            
+            document.getElementById('eventsInfo').innerHTML = `
+                <div class="event-timeline">
+                    <div class="event-item">
+                        <div class="event-order first">1</div>
+                        <div class="event-details">
+                            <div class="event-type">${data.first_event.type} Value</div>
+                            <div class="event-time">${formatTime(data.first_event.time)}</div>
+                        </div>
+                        <div class="event-values">
+                            <div class="event-prediction">Pred: ${data.first_event.prediction.toFixed(2)}</div>
+                            <div class="event-actual">${data.first_event.actual ? data.first_event.actual.toFixed(2) : 'N/A'}</div>
+                        </div>
+                    </div>
+                    <div class="event-item">
+                        <div class="event-order second">2</div>
+                        <div class="event-details">
+                            <div class="event-type">${data.second_event.type} Value</div>
+                            <div class="event-time">${formatTime(data.second_event.time)}</div>
+                        </div>
+                        <div class="event-values">
+                            <div class="event-prediction">Pred: ${data.second_event.prediction.toFixed(2)}</div>
+                            <div class="event-actual">${data.second_event.actual ? data.second_event.actual.toFixed(2) : 'N/A'}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function updateMinMaxInfo(data) {
+            const formatTime = (isoString) => {
+                const d = new Date(isoString);
+                return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            };
+            
+            document.getElementById('minMaxInfo').innerHTML = `
+                <div class="info-row">
+                    <span class="info-label">Min Prediction</span>
+                    <span class="info-value">${data.min_prediction.value.toFixed(2)}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Min Time</span>
+                    <span class="info-value mono">${formatTime(data.min_prediction.time)}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Min Actual Value</span>
+                    <span class="info-value">${data.min_prediction.actual_value ? data.min_prediction.actual_value.toFixed(2) : 'N/A'}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Max Prediction</span>
+                    <span class="info-value">${data.max_prediction.value.toFixed(2)}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Max Time</span>
+                    <span class="info-value mono">${formatTime(data.max_prediction.time)}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Max Actual Value</span>
+                    <span class="info-value">${data.max_prediction.actual_value ? data.max_prediction.actual_value.toFixed(2) : 'N/A'}</span>
+                </div>
+            `;
+        }
+        
+        function updateNormTouchInfo(data) {
+            const normTouch = data.norm_touch || {};
+            const actualPos = normTouch.actual_normalized_pos;
+            const touchedMax = normTouch.touched_max;
+            const touchedMin = normTouch.touched_min;
+            const actualsCount = data.actuals_before_count || 0;
+            
+            let touchStatus = 'No touch detected';
+            let touchClass = '';
+            let signal = '-';
+            
+            if (touchedMax) {
+                touchStatus = '🎯 Touched Future MAX';
+                touchClass = 'pnl-negative';
+                signal = 'SELL (Fade)';
+            } else if (touchedMin) {
+                touchStatus = '🎯 Touched Future MIN';
+                touchClass = 'pnl-positive';
+                signal = 'BUY (Fade)';
+            }
+            
+            document.getElementById('normTouchInfo').innerHTML = `
+                <div class="info-row">
+                    <span class="info-label">Actuals Data Points (5min)</span>
+                    <span class="info-value mono" style="color: #ff9f1c;">${actualsCount} points</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Actual Normalized Position</span>
+                    <span class="info-value">${actualPos !== null && actualPos !== undefined ? (actualPos * 100).toFixed(1) + '%' : 'N/A'}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Touch Status</span>
+                    <span class="info-value ${touchClass}">${touchStatus}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Normalized Signal</span>
+                    <span class="info-value">${signal}</span>
+                </div>
+                <div class="info-row" style="font-size: 11px; color: var(--text-secondary); padding-top: 10px; border-top: 1px dashed var(--border-color);">
+                    <span>Compares relative position of actual (last 5min) vs prediction range</span>
+                </div>
+            `;
+        }
+        
+        function updateStrategiesTable(data) {
+            const tbody = document.getElementById('strategiesTable');
+            tbody.innerHTML = '';
+            
+            const formatTime = (isoString) => {
+                const d = new Date(isoString);
+                return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            };
+            
+            for (const [strategyKey, strategyData] of Object.entries(data.strategies)) {
+                const strategyInfo = strategies[strategyKey] || { name: strategyKey, description: '' };
+                const pnlClass = strategyData.pnl >= 0 ? 'pnl-positive' : 'pnl-negative';
+                const pnlSign = strategyData.pnl >= 0 ? '+' : '';
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><span class="strategy-name">${strategyInfo.name}</span></td>
+                    <td><span class="strategy-desc">${strategyInfo.description}</span></td>
+                    <td class="mono">${formatTime(strategyData.entry_time)}</td>
+                    <td class="mono">${strategyData.entry_value.toFixed(2)}</td>
+                    <td class="mono">${formatTime(strategyData.exit_time)}</td>
+                    <td class="mono">${strategyData.exit_value.toFixed(2)}</td>
+                    <td class="${pnlClass} mono">${pnlSign}${strategyData.pnl.toFixed(2)}</td>
+                `;
+                tbody.appendChild(row);
+            }
+            
+            if (Object.keys(data.strategies).length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="loading">No strategies available for this window</td></tr>';
+            }
+        }
+        
+        async function refreshData() {
+            try {
+                const response = await fetch('/api/refresh');
+                const data = await response.json();
+                
+                // Update dates dropdown with refreshed data
+                if (data.dates) {
+                    const select = document.getElementById('dateSelect');
+                    select.innerHTML = '';
+                    data.dates.forEach(date => {
+                        const option = document.createElement('option');
+                        option.value = date;
+                        option.textContent = date;
+                        if (date === data.current_date) {
+                            option.selected = true;
+                            currentDate = date;
+                        }
+                        select.appendChild(option);
+                    });
+                }
+                
+                summaryLoaded = false;
+                await loadWindows();
+                await updateAnalysis();
+                
+                // Reload summary if on summary tab
+                if (document.getElementById('tab-summary').classList.contains('active')) {
+                    loadSummary();
+                }
+            } catch (error) {
+                console.error('Failed to refresh:', error);
+            }
+        }
+        
+        function showError(message) {
+            console.error(message);
+        }
+        
+        // Event listeners
+        document.getElementById('timeSlider').addEventListener('input', () => {
+            updateTimeDisplay();
+            updateAnalysis();
+        });
+        
+        // Initialize on page load
+        init();
+    </script>
+</body>
+</html>
