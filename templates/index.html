@@ -910,12 +910,12 @@
                                 <span>3pt Target</span>
                             </label>
                             <label class="column-checkbox">
-                                <input type="checkbox" id="col-strategy_norm_touch_max" checked onchange="updateColumnVisibility()">
-                                <span>Norm Touch Max</span>
+                                <input type="checkbox" id="col-strategy_norm_touch" checked onchange="updateColumnVisibility()">
+                                <span>Norm Touch (±30pt)</span>
                             </label>
                             <label class="column-checkbox">
-                                <input type="checkbox" id="col-strategy_norm_touch_min" checked onchange="updateColumnVisibility()">
-                                <span>Norm Touch Min</span>
+                                <input type="checkbox" id="col-strategy_norm_touch_v2" checked onchange="updateColumnVisibility()">
+                                <span>Norm Touch v2</span>
                             </label>
                         </div>
                     </div>
@@ -937,8 +937,8 @@
                                 <th class="text-center" data-col="strategy_2_6min">Exit 6min</th>
                                 <th class="text-center" data-col="strategy_3_2pt">2pt Target</th>
                                 <th class="text-center" data-col="strategy_3_3pt">3pt Target</th>
-                                <th class="text-center" data-col="strategy_norm_touch_max">Norm Max</th>
-                                <th class="text-center" data-col="strategy_norm_touch_min">Norm Min</th>
+                                <th class="text-center" data-col="strategy_norm_touch">Norm Touch</th>
+                                <th class="text-center" data-col="strategy_norm_touch_v2">Norm v2</th>
                             </tr>
                         </thead>
                         <tbody id="summaryTable">
@@ -1045,7 +1045,7 @@
         });
         
         function updateColumnVisibility() {
-            const columns = ['pred_diff', 'signal', 'strategy_1', 'strategy_2_1min', 'strategy_2_2min', 'strategy_2_3min', 'strategy_2_4min', 'strategy_2_5min', 'strategy_2_6min', 'strategy_3_2pt', 'strategy_3_3pt', 'strategy_norm_touch_max', 'strategy_norm_touch_min'];
+            const columns = ['pred_diff', 'signal', 'strategy_1', 'strategy_2_1min', 'strategy_2_2min', 'strategy_2_3min', 'strategy_2_4min', 'strategy_2_5min', 'strategy_2_6min', 'strategy_3_2pt', 'strategy_3_3pt', 'strategy_norm_touch', 'strategy_norm_touch_v2'];
             
             columns.forEach(col => {
                 const checkbox = document.getElementById(`col-${col}`);
@@ -1488,20 +1488,30 @@
             const actualPos = normTouch.actual_normalized_pos;
             const touchedMax = normTouch.touched_max;
             const touchedMin = normTouch.touched_min;
-            const actualsCount = data.actuals_before_count || 0;
+            const firstTouch = normTouch.first_touch;
+            const actualsCount = normTouch.actuals_count || data.actuals_before_count || 0;
             
             let touchStatus = 'No touch detected';
             let touchClass = '';
             let signal = '-';
+            let exitTarget = '-';
             
-            if (touchedMax) {
-                touchStatus = '🎯 Touched Future MAX';
+            if (firstTouch === 'MAX') {
+                touchStatus = '🎯 Touched MAX first';
                 touchClass = 'pnl-negative';
-                signal = 'SELL (Fade)';
-            } else if (touchedMin) {
-                touchStatus = '🎯 Touched Future MIN';
+                signal = 'SELL';
+                exitTarget = 'Entry - 30 pts';
+            } else if (firstTouch === 'MIN') {
+                touchStatus = '🎯 Touched MIN first';
                 touchClass = 'pnl-positive';
-                signal = 'BUY (Fade)';
+                signal = 'BUY';
+                exitTarget = 'Entry + 30 pts';
+            } else if (touchedMax) {
+                touchStatus = '🟡 Touched MAX (not first)';
+                touchClass = '';
+            } else if (touchedMin) {
+                touchStatus = '🟡 Touched MIN (not first)';
+                touchClass = '';
             }
             
             document.getElementById('normTouchInfo').innerHTML = `
@@ -1510,19 +1520,23 @@
                     <span class="info-value mono" style="color: #ff9f1c;">${actualsCount} points</span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Actual Normalized Position</span>
-                    <span class="info-value">${actualPos !== null && actualPos !== undefined ? (actualPos * 100).toFixed(1) + '%' : 'N/A'}</span>
-                </div>
-                <div class="info-row">
                     <span class="info-label">Touch Status</span>
                     <span class="info-value ${touchClass}">${touchStatus}</span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Normalized Signal</span>
-                    <span class="info-value">${signal}</span>
+                    <span class="info-label">Signal</span>
+                    <span class="info-value" style="font-weight: 700; color: ${signal === 'BUY' ? '#06d6a0' : signal === 'SELL' ? '#ef476f' : 'inherit'};">${signal}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Exit Target</span>
+                    <span class="info-value mono">${exitTarget}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Last Actual Norm Pos</span>
+                    <span class="info-value">${actualPos !== null && actualPos !== undefined ? (actualPos * 100).toFixed(1) + '%' : 'N/A'}</span>
                 </div>
                 <div class="info-row" style="font-size: 11px; color: var(--text-secondary); padding-top: 10px; border-top: 1px dashed var(--border-color);">
-                    <span>Compares relative position of actual (last 5min) vs prediction range</span>
+                    <span>Checks if actuals (5min before) touched Pred Max or Min first</span>
                 </div>
             `;
         }
@@ -1608,3 +1622,4 @@
     </script>
 </body>
 </html>
+

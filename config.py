@@ -80,19 +80,20 @@ STRATEGIES = {
         'name': 'Target Exit 3pts',
         'description': 'Exit when prediction moves 3 points'
     },
-    'strategy_norm_touch_max': {
-        'name': 'Norm Touch Max',
-        'description': 'Actual touched predicted max (normalized) → SELL'
+    'strategy_norm_touch': {
+        'name': 'Norm Touch',
+        'description': 'Actual touched pred extreme first → trade with +30pt exit'
     },
-    'strategy_norm_touch_min': {
-        'name': 'Norm Touch Min', 
-        'description': 'Actual touched predicted min (normalized) → BUY'
+    'strategy_norm_touch_v2': {
+        'name': 'Norm Touch v2',
+        'description': 'Exit at predicted min/max time (opposite extreme)'
     }
 }
 
 # Normalized Touch Strategy Parameters
 NORM_TOUCH_TOLERANCE = 0.05  # Tolerance for normalized comparison (5%)
-NORM_ACTUAL_LOOKBACK_MINUTES = 15  # Lookback window for actuals before prediction window
+NORM_TOUCH_EXIT_TOLERANCE = 0.05  # Exit tolerance for v2 (5%)
+NORM_ACTUAL_LOOKBACK_MINUTES = 5  # Lookback window for actuals before prediction window
 
 # Trading parameters
 TRANSACTION_COST = 0.05  # Transaction cost per trade

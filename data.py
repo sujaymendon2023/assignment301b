@@ -121,7 +121,7 @@ class MarketData:
                 break
         
         return windows
-    
+
     def window(self, start: datetime, end: datetime) -> pd.DataFrame:
         """Get predictions within a time window."""
         mask = (self.predictions["timestamp"] >= start) & (self.predictions["timestamp"] <= end)
@@ -287,8 +287,8 @@ class TradingStrategy:
                         'pnl': pnl
                     }
         
-        # Strategy 4: Normalized Touch - compare relative positions
-        # Get actuals BEFORE the prediction window
+        # Strategy 4: Normalized Touch - check if actuals touched Pred Max or Pred Min
+        # Get actuals BEFORE the prediction window (5 mins)
         actuals_before = self.market_data.get_actuals_before_time(
             start, 
             config.NORM_ACTUAL_LOOKBACK_MINUTES
@@ -297,21 +297,19 @@ class TradingStrategy:
         norm_touch_result = {
             'touched_max': False,
             'touched_min': False,
+            'first_touch': None,  # 'MAX' or 'MIN' - which was touched first
+            'touch_time': None,
             'actual_normalized_pos': None,
             'pred_max_normalized': None,
             'pred_min_normalized': None,
-            'signal': None
+            'signal': None,
+            'actuals_count': len(actuals_before)
         }
         
         if not actuals_before.empty and not window_df.empty:
             # Normalize actuals (before window)
             actual_values = actuals_before['actual_value']
             actual_norm = normalize_series(actual_values)
-            
-            # Position of last actual (just before window starts)
-            last_actual_pos = actual_norm.iloc[-1] if len(actual_norm) > 0 else None
-            last_actual_time = actuals_before['timestamp'].iloc[-1] if len(actuals_before) > 0 else None
-            last_actual_value = actual_values.iloc[-1] if len(actual_values) > 0 else None
             
             # Normalize predictions (the future window)
             pred_values = window_df['predictions']
@@ -321,55 +319,161 @@ class TradingStrategy:
             pred_max_normalized = pred_norm.max()  # Always ≈ 1.0
             pred_min_normalized = pred_norm.min()  # Always ≈ 0.0
             
+            tolerance = config.NORM_TOUCH_TOLERANCE
+            
+            # Check ALL actuals to find which touched first (max or min)
+            first_touch = None
+            first_touch_time = None
+            first_touch_value = None
+            first_touch_norm_pos = None
+            
+            for i, (idx, row) in enumerate(actuals_before.iterrows()):
+                norm_pos = actual_norm.iloc[i]
+                touched_max_at_point = abs(norm_pos - pred_max_normalized) <= tolerance
+                touched_min_at_point = abs(norm_pos - pred_min_normalized) <= tolerance
+                
+                if touched_max_at_point and first_touch is None:
+                    first_touch = 'MAX'
+                    first_touch_time = row['timestamp']
+                    first_touch_value = row['actual_value']
+                    first_touch_norm_pos = norm_pos
+                    norm_touch_result['touched_max'] = True
+                    break
+                elif touched_min_at_point and first_touch is None:
+                    first_touch = 'MIN'
+                    first_touch_time = row['timestamp']
+                    first_touch_value = row['actual_value']
+                    first_touch_norm_pos = norm_pos
+                    norm_touch_result['touched_min'] = True
+                    break
+            
+            # Also check if any touched (for display purposes)
+            for i in range(len(actual_norm)):
+                norm_pos = actual_norm.iloc[i]
+                if abs(norm_pos - pred_max_normalized) <= tolerance:
+                    norm_touch_result['touched_max'] = True
+                if abs(norm_pos - pred_min_normalized) <= tolerance:
+                    norm_touch_result['touched_min'] = True
+            
+            # Position of last actual (for display)
+            last_actual_pos = actual_norm.iloc[-1] if len(actual_norm) > 0 else None
             norm_touch_result['actual_normalized_pos'] = float(last_actual_pos) if last_actual_pos is not None else None
             norm_touch_result['pred_max_normalized'] = float(pred_max_normalized)
             norm_touch_result['pred_min_normalized'] = float(pred_min_normalized)
+            norm_touch_result['first_touch'] = first_touch
             
-            tolerance = config.NORM_TOUCH_TOLERANCE
+            # Generate trade signal based on which was touched first
+            if first_touch == 'MAX' and first_touch_value is not None:
+                # Touched MAX first → SELL signal (fade the high)
+                norm_touch_result['signal'] = 'SELL'
+                norm_touch_result['touch_time'] = first_touch_time
+                
+                # Entry at touch point, exit at entry - 30 points (target profit)
+                entry_value = float(first_touch_value)
+                exit_target = entry_value - 30  # Target 30 points profit on short
+                
+                # Find when actual reaches exit target
+                all_actuals_after = self.market_data.actuals[
+                    self.market_data.actuals['timestamp'] >= first_touch_time
+                ]
+                
+                exit_found = False
+                exit_time = None
+                exit_value = None
+                for _, act_row in all_actuals_after.iterrows():
+                    if act_row['actual_value'] <= exit_target:
+                        exit_time = act_row['timestamp']
+                        exit_value = float(act_row['actual_value'])
+                        exit_found = True
+                        break
+                
+                if exit_found:
+                    pnl = entry_value - exit_value - config.TRANSACTION_COST - config.SLIPPAGE
+                    strategies['strategy_norm_touch'] = {
+                        'entry_time': first_touch_time,
+                        'entry_value': entry_value,
+                        'exit_time': exit_time,
+                        'exit_value': exit_value,
+                        'pnl': pnl,
+                        'touch_type': 'MAX',
+                        'signal': 'SELL'
+                    }
             
-            # Check if actual touched future predicted MAX (short signal)
-            if last_actual_pos is not None:
-                touched_max = abs(last_actual_pos - pred_max_normalized) <= tolerance
-                touched_min = abs(last_actual_pos - pred_min_normalized) <= tolerance
+            elif first_touch == 'MIN' and first_touch_value is not None:
+                # Touched MIN first → BUY signal (fade the low)
+                norm_touch_result['signal'] = 'BUY'
+                norm_touch_result['touch_time'] = first_touch_time
                 
-                norm_touch_result['touched_max'] = touched_max
-                norm_touch_result['touched_min'] = touched_min
+                # Entry at touch point, exit at entry + 30 points (target profit)
+                entry_value = float(first_touch_value)
+                exit_target = entry_value + 30  # Target 30 points profit on long
                 
-                # Generate trade signal and calculate P&L
-                if touched_max and last_actual_value is not None:
-                    # Actual at high of range, predicted max → SELL (fade)
-                    norm_touch_result['signal'] = 'SELL'
+                # Find when actual reaches exit target
+                all_actuals_after = self.market_data.actuals[
+                    self.market_data.actuals['timestamp'] >= first_touch_time
+                ]
+                
+                exit_found = False
+                exit_time = None
+                exit_value = None
+                for _, act_row in all_actuals_after.iterrows():
+                    if act_row['actual_value'] >= exit_target:
+                        exit_time = act_row['timestamp']
+                        exit_value = float(act_row['actual_value'])
+                        exit_found = True
+                        break
+                
+                if exit_found:
+                    pnl = exit_value - entry_value - config.TRANSACTION_COST - config.SLIPPAGE
+                    strategies['strategy_norm_touch'] = {
+                        'entry_time': first_touch_time,
+                        'entry_value': entry_value,
+                        'exit_time': exit_time,
+                        'exit_value': exit_value,
+                        'pnl': pnl,
+                        'touch_type': 'MIN',
+                        'signal': 'BUY'
+                    }
+            
+            # Strategy: Norm Touch v2 - exit at predicted min/max time
+            # Entry on MAX → exit at MIN time, Entry on MIN → exit at MAX time
+            if first_touch is not None and first_touch_value is not None:
+                entry_value_v2 = float(first_touch_value)
+                
+                if first_touch == 'MAX':
+                    # Entered on MAX (SELL), exit at predicted MIN time
+                    exit_time_v2 = min_row['timestamp']
+                    _, exit_value_v2 = self.market_data.get_actual_at_time(exit_time_v2)
                     
-                    # Entry at last actual before window, exit at min prediction time
-                    _, exit_value = self.market_data.get_actual_at_time(min_row['timestamp'])
-                    if exit_value is not None:
-                        pnl = last_actual_value - exit_value - config.TRANSACTION_COST - config.SLIPPAGE
-                        strategies['strategy_norm_touch_max'] = {
-                            'entry_time': last_actual_time,
-                            'entry_value': last_actual_value,
-                            'exit_time': min_row['timestamp'],
-                            'exit_value': exit_value,
-                            'pnl': pnl,
-                            'actual_norm_pos': float(last_actual_pos),
-                            'touched': True
+                    if exit_value_v2 is not None:
+                        pnl_v2 = entry_value_v2 - exit_value_v2 - config.TRANSACTION_COST - config.SLIPPAGE
+                        strategies['strategy_norm_touch_v2'] = {
+                            'entry_time': first_touch_time,
+                            'entry_value': entry_value_v2,
+                            'exit_time': exit_time_v2,
+                            'exit_value': float(exit_value_v2),
+                            'pnl': pnl_v2,
+                            'touch_type': 'MAX',
+                            'exit_at': 'MIN_TIME',
+                            'signal': 'SELL'
                         }
                 
-                if touched_min and last_actual_value is not None:
-                    # Actual at low of range, predicted min → BUY (fade)
-                    norm_touch_result['signal'] = 'BUY'
+                elif first_touch == 'MIN':
+                    # Entered on MIN (BUY), exit at predicted MAX time
+                    exit_time_v2 = max_row['timestamp']
+                    _, exit_value_v2 = self.market_data.get_actual_at_time(exit_time_v2)
                     
-                    # Entry at last actual before window, exit at max prediction time
-                    _, exit_value = self.market_data.get_actual_at_time(max_row['timestamp'])
-                    if exit_value is not None:
-                        pnl = exit_value - last_actual_value - config.TRANSACTION_COST - config.SLIPPAGE
-                        strategies['strategy_norm_touch_min'] = {
-                            'entry_time': last_actual_time,
-                            'entry_value': last_actual_value,
-                            'exit_time': max_row['timestamp'],
-                            'exit_value': exit_value,
-                            'pnl': pnl,
-                            'actual_norm_pos': float(last_actual_pos),
-                            'touched': True
+                    if exit_value_v2 is not None:
+                        pnl_v2 = exit_value_v2 - entry_value_v2 - config.TRANSACTION_COST - config.SLIPPAGE
+                        strategies['strategy_norm_touch_v2'] = {
+                            'entry_time': first_touch_time,
+                            'entry_value': entry_value_v2,
+                            'exit_time': exit_time_v2,
+                            'exit_value': float(exit_value_v2),
+                            'pnl': pnl_v2,
+                            'touch_type': 'MIN',
+                            'exit_at': 'MAX_TIME',
+                            'signal': 'BUY'
                         }
         
         # Order min/max by time (which occurred first)

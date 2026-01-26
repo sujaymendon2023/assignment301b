@@ -138,10 +138,12 @@ def analyze():
         'norm_touch': {
             'touched_max': bool(analysis.get('norm_touch', {}).get('touched_max', False)),
             'touched_min': bool(analysis.get('norm_touch', {}).get('touched_min', False)),
+            'first_touch': analysis.get('norm_touch', {}).get('first_touch'),
             'actual_normalized_pos': float(analysis.get('norm_touch', {}).get('actual_normalized_pos')) if analysis.get('norm_touch', {}).get('actual_normalized_pos') is not None else None,
             'pred_max_normalized': float(analysis.get('norm_touch', {}).get('pred_max_normalized')) if analysis.get('norm_touch', {}).get('pred_max_normalized') is not None else None,
             'pred_min_normalized': float(analysis.get('norm_touch', {}).get('pred_min_normalized')) if analysis.get('norm_touch', {}).get('pred_min_normalized') is not None else None,
-            'signal': analysis.get('norm_touch', {}).get('signal')
+            'signal': analysis.get('norm_touch', {}).get('signal'),
+            'actuals_count': analysis.get('norm_touch', {}).get('actuals_count', 0)
         },
         'strategies': {}
     }
@@ -179,7 +181,7 @@ def get_summary():
     windows = market_data.get_time_windows(window_minutes=15, increment_minutes=increment)
     
     # Strategy keys in order
-    strategy_keys = ['strategy_1', 'strategy_2_1min', 'strategy_2_2min', 'strategy_2_3min', 'strategy_2_4min', 'strategy_2_5min', 'strategy_2_6min', 'strategy_3_2pt', 'strategy_3_3pt', 'strategy_norm_touch_max', 'strategy_norm_touch_min']
+    strategy_keys = ['strategy_1', 'strategy_2_1min', 'strategy_2_2min', 'strategy_2_3min', 'strategy_2_4min', 'strategy_2_5min', 'strategy_2_6min', 'strategy_3_2pt', 'strategy_3_3pt', 'strategy_norm_touch', 'strategy_norm_touch_v2']
     
     rows = []
     totals = {key: 0.0 for key in strategy_keys}
