@@ -406,19 +406,23 @@ class TradingStrategy:
             norm_touch_result['first_touch'] = first_touch
             
             # Generate trade signal based on which was touched first
-            if first_touch == 'MAX' and first_touch_value is not None:
+            # Entry is at the START of the prediction window (can't go back in time)
+            _, window_start_actual = self.market_data.get_actual_at_time(start)
+            
+            if first_touch == 'MAX' and first_touch_value is not None and window_start_actual is not None:
                 # Touched MAX first → SELL signal (fade the high)
                 norm_touch_result['signal'] = 'SELL'
                 norm_touch_result['touch_time'] = first_touch_time
                 
-                # Entry at touch point
-                entry_value = float(first_touch_value)
+                # Entry at window start (not at touch time - can't trade in the past)
+                entry_time = start
+                entry_value = float(window_start_actual)
                 target_price = entry_value - config.NORM_TOUCH_TARGET_POINTS  # Target profit
                 stop_loss_price = entry_value + config.STOP_LOSS_POINTS  # Stop loss
                 
                 # Find when actual reaches target OR stop loss (whichever first)
                 all_actuals_after = self.market_data.actuals[
-                    self.market_data.actuals['timestamp'] >= first_touch_time
+                    self.market_data.actuals['timestamp'] >= start
                 ]
                 
                 exit_found = False
@@ -445,7 +449,7 @@ class TradingStrategy:
                 if exit_found:
                     pnl = entry_value - exit_value - config.TRANSACTION_COST - config.SLIPPAGE
                     strategies['strategy_norm_touch'] = {
-                        'entry_time': first_touch_time,
+                        'entry_time': entry_time,
                         'entry_value': entry_value,
                         'exit_time': exit_time,
                         'exit_value': exit_value,
@@ -455,19 +459,20 @@ class TradingStrategy:
                         'exit_reason': exit_reason
                     }
             
-            elif first_touch == 'MIN' and first_touch_value is not None:
+            elif first_touch == 'MIN' and first_touch_value is not None and window_start_actual is not None:
                 # Touched MIN first → BUY signal (fade the low)
                 norm_touch_result['signal'] = 'BUY'
                 norm_touch_result['touch_time'] = first_touch_time
                 
-                # Entry at touch point
-                entry_value = float(first_touch_value)
+                # Entry at window start (not at touch time - can't trade in the past)
+                entry_time = start
+                entry_value = float(window_start_actual)
                 target_price = entry_value + config.NORM_TOUCH_TARGET_POINTS  # Target profit
                 stop_loss_price = entry_value - config.STOP_LOSS_POINTS  # Stop loss
                 
                 # Find when actual reaches target OR stop loss (whichever first)
                 all_actuals_after = self.market_data.actuals[
-                    self.market_data.actuals['timestamp'] >= first_touch_time
+                    self.market_data.actuals['timestamp'] >= start
                 ]
                 
                 exit_found = False
@@ -494,7 +499,7 @@ class TradingStrategy:
                 if exit_found:
                     pnl = exit_value - entry_value - config.TRANSACTION_COST - config.SLIPPAGE
                     strategies['strategy_norm_touch'] = {
-                        'entry_time': first_touch_time,
+                        'entry_time': entry_time,
                         'entry_value': entry_value,
                         'exit_time': exit_time,
                         'exit_value': exit_value,
@@ -505,22 +510,23 @@ class TradingStrategy:
                     }
             
             # Strategy: Norm Touch v2 - exit at predicted min/max time (with stop loss)
-            # Entry on MAX → exit at MIN time, Entry on MIN → exit at MAX time
-            if first_touch is not None and first_touch_value is not None:
-                entry_value_v2 = float(first_touch_value)
+            # Entry at window start, on MAX → exit at MIN time, on MIN → exit at MAX time
+            if first_touch is not None and first_touch_value is not None and window_start_actual is not None:
+                entry_time_v2 = start
+                entry_value_v2 = float(window_start_actual)
                 
                 if first_touch == 'MAX':
-                    # Entered on MAX (SELL), exit at predicted MIN time
+                    # Detected MAX touch (SELL signal), exit at predicted MIN time
                     exit_time_v2 = min_row['timestamp']
                     _, exit_value_v2 = self.market_data.get_actual_at_time(exit_time_v2)
                     
                     if exit_value_v2 is not None:
                         final_exit_time_v2, final_exit_value_v2, exit_reason_v2 = check_stop_loss(
-                            first_touch_time, entry_value_v2, exit_time_v2, float(exit_value_v2), 'SELL'
+                            start, entry_value_v2, exit_time_v2, float(exit_value_v2), 'SELL'
                         )
                         pnl_v2 = entry_value_v2 - final_exit_value_v2 - config.TRANSACTION_COST - config.SLIPPAGE
                         strategies['strategy_norm_touch_v2'] = {
-                            'entry_time': first_touch_time,
+                            'entry_time': entry_time_v2,
                             'entry_value': entry_value_v2,
                             'exit_time': final_exit_time_v2,
                             'exit_value': float(final_exit_value_v2),
@@ -532,17 +538,17 @@ class TradingStrategy:
                         }
                 
                 elif first_touch == 'MIN':
-                    # Entered on MIN (BUY), exit at predicted MAX time
+                    # Detected MIN touch (BUY signal), exit at predicted MAX time
                     exit_time_v2 = max_row['timestamp']
                     _, exit_value_v2 = self.market_data.get_actual_at_time(exit_time_v2)
                     
                     if exit_value_v2 is not None:
                         final_exit_time_v2, final_exit_value_v2, exit_reason_v2 = check_stop_loss(
-                            first_touch_time, entry_value_v2, exit_time_v2, float(exit_value_v2), 'BUY'
+                            start, entry_value_v2, exit_time_v2, float(exit_value_v2), 'BUY'
                         )
                         pnl_v2 = final_exit_value_v2 - entry_value_v2 - config.TRANSACTION_COST - config.SLIPPAGE
                         strategies['strategy_norm_touch_v2'] = {
-                            'entry_time': first_touch_time,
+                            'entry_time': entry_time_v2,
                             'entry_value': entry_value_v2,
                             'exit_time': final_exit_time_v2,
                             'exit_value': float(final_exit_value_v2),

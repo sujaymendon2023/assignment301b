@@ -94,7 +94,7 @@ STRATEGIES = {
 # Normalized Touch Strategy Parameters
 NORM_TOUCH_TOLERANCE = 0.05  # Tolerance for normalized comparison (5%)
 NORM_TOUCH_EXIT_TOLERANCE = 0.05  # Exit tolerance for v2 (5%)
-NORM_ACTUAL_LOOKBACK_MINUTES = 2  # Lookback window for actuals before prediction window
+NORM_ACTUAL_LOOKBACK_MINUTES = 2  # Lookback window for actuals before prediction window (to detect signal)
 NORM_TOUCH_TARGET_POINTS = 30  # Target profit points for Norm Touch
 
 # Trading parameters
