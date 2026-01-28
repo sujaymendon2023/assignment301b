@@ -205,34 +205,71 @@ class TradingStrategy:
             exit_time = min_row['timestamp']
             exit_actual_value = min_actual_value
         
-        # Strategy 1: Buy/Sell at first occurrence, exit at second occurrence
+        # Helper function to check for stop loss between entry and planned exit
+        def check_stop_loss(entry_t, entry_v, planned_exit_t, planned_exit_v, sig):
+            """Check if stop loss is hit before planned exit. Returns (exit_time, exit_value, exit_reason)"""
+            stop_loss = config.STOP_LOSS_POINTS
+            
+            # Get actuals between entry and planned exit
+            actuals_between = self.market_data.actuals[
+                (self.market_data.actuals['timestamp'] > entry_t) & 
+                (self.market_data.actuals['timestamp'] <= planned_exit_t)
+            ]
+            
+            for _, act_row in actuals_between.iterrows():
+                actual_price = float(act_row['actual_value'])
+                if sig == 'BUY':
+                    # Stop loss for BUY: price drops below entry - stop_loss
+                    if actual_price <= entry_v - stop_loss:
+                        return act_row['timestamp'], actual_price, 'STOP_LOSS'
+                else:
+                    # Stop loss for SELL: price rises above entry + stop_loss
+                    if actual_price >= entry_v + stop_loss:
+                        return act_row['timestamp'], actual_price, 'STOP_LOSS'
+            
+            # No stop loss hit, use planned exit
+            return planned_exit_t, planned_exit_v, 'TARGET'
+        
+        # Strategy 1: Buy/Sell at first occurrence, exit at second occurrence (with stop loss)
         if entry_actual_value is not None and exit_actual_value is not None:
+            final_exit_time, final_exit_value, exit_reason = check_stop_loss(
+                entry_time, entry_actual_value, exit_time, exit_actual_value, signal
+            )
+            
             if signal == 'BUY':
-                pnl = exit_actual_value - entry_actual_value - config.TRANSACTION_COST - config.SLIPPAGE
+                pnl = final_exit_value - entry_actual_value - config.TRANSACTION_COST - config.SLIPPAGE
             else:
-                pnl = entry_actual_value - exit_actual_value - config.TRANSACTION_COST - config.SLIPPAGE
+                pnl = entry_actual_value - final_exit_value - config.TRANSACTION_COST - config.SLIPPAGE
             strategies['strategy_1'] = {
                 'entry_time': entry_time,
                 'entry_value': entry_actual_value,
-                'exit_time': exit_time,
-                'exit_value': exit_actual_value,
-                'pnl': pnl
+                'exit_time': final_exit_time,
+                'exit_value': final_exit_value,
+                'pnl': pnl,
+                'signal': signal,
+                'exit_reason': exit_reason
             }
         
-        # Strategy 2: Fixed time exits (1, 2, 3, 4, 5, 6 minutes)
+        # Strategy 2: Fixed time exits (1, 2, 3, 4, 5, 6 minutes) with stop loss
         for minutes in [1, 2, 3, 4, 5, 6]:
             exit_time_fixed, exit_value_fixed = self.market_data.get_actual_after_minutes(entry_time, minutes)
             if exit_value_fixed is not None and entry_actual_value is not None:
+                final_exit_time, final_exit_value, exit_reason = check_stop_loss(
+                    entry_time, entry_actual_value, exit_time_fixed, exit_value_fixed, signal
+                )
+                
                 if signal == 'BUY':
-                    pnl = exit_value_fixed - entry_actual_value - config.TRANSACTION_COST - config.SLIPPAGE
+                    pnl = final_exit_value - entry_actual_value - config.TRANSACTION_COST - config.SLIPPAGE
                 else:
-                    pnl = entry_actual_value - exit_value_fixed - config.TRANSACTION_COST - config.SLIPPAGE
+                    pnl = entry_actual_value - final_exit_value - config.TRANSACTION_COST - config.SLIPPAGE
                 strategies[f'strategy_2_{minutes}min'] = {
                     'entry_time': entry_time,
                     'entry_value': entry_actual_value,
-                    'exit_time': exit_time_fixed,
-                    'exit_value': exit_value_fixed,
-                    'pnl': pnl
+                    'exit_time': final_exit_time,
+                    'exit_value': final_exit_value,
+                    'pnl': pnl,
+                    'signal': signal,
+                    'exit_reason': exit_reason
                 }
         
         # Strategy 3: Exit after N points movement in PREDICTION value (2pt and 3pt)
@@ -270,21 +307,27 @@ class TradingStrategy:
                     exit_found = True
                     break
             
-            # If prediction target hit, get ACTUAL values at entry and exit times for P&L
+            # If prediction target hit, get ACTUAL values at entry and exit times for P&L (with stop loss)
             if exit_found and entry_actual_value is not None:
                 _, exit_actual_value_target = self.market_data.get_actual_at_time(exit_time_target)
                 
                 if exit_actual_value_target is not None:
+                    final_exit_time, final_exit_value, exit_reason = check_stop_loss(
+                        entry_time, entry_actual_value, exit_time_target, exit_actual_value_target, signal
+                    )
+                    
                     if signal == 'BUY':
-                        pnl = exit_actual_value_target - entry_actual_value - config.TRANSACTION_COST - config.SLIPPAGE
+                        pnl = final_exit_value - entry_actual_value - config.TRANSACTION_COST - config.SLIPPAGE
                     else:
-                        pnl = entry_actual_value - exit_actual_value_target - config.TRANSACTION_COST - config.SLIPPAGE
+                        pnl = entry_actual_value - final_exit_value - config.TRANSACTION_COST - config.SLIPPAGE
                     strategies[f'strategy_3_{target_points}pt'] = {
                         'entry_time': entry_time,
                         'entry_value': entry_actual_value,
-                        'exit_time': exit_time_target,
-                        'exit_value': exit_actual_value_target,
-                        'pnl': pnl
+                        'exit_time': final_exit_time,
+                        'exit_value': final_exit_value,
+                        'pnl': pnl,
+                        'signal': signal,
+                        'exit_reason': exit_reason
                     }
         
         # Strategy 4: Normalized Touch - check if actuals touched Pred Max or Pred Min
@@ -368,11 +411,12 @@ class TradingStrategy:
                 norm_touch_result['signal'] = 'SELL'
                 norm_touch_result['touch_time'] = first_touch_time
                 
-                # Entry at touch point, exit at entry - 30 points (target profit)
+                # Entry at touch point
                 entry_value = float(first_touch_value)
-                exit_target = entry_value - 30  # Target 30 points profit on short
+                target_price = entry_value - config.NORM_TOUCH_TARGET_POINTS  # Target profit
+                stop_loss_price = entry_value + config.STOP_LOSS_POINTS  # Stop loss
                 
-                # Find when actual reaches exit target
+                # Find when actual reaches target OR stop loss (whichever first)
                 all_actuals_after = self.market_data.actuals[
                     self.market_data.actuals['timestamp'] >= first_touch_time
                 ]
@@ -380,11 +424,22 @@ class TradingStrategy:
                 exit_found = False
                 exit_time = None
                 exit_value = None
+                exit_reason = None
                 for _, act_row in all_actuals_after.iterrows():
-                    if act_row['actual_value'] <= exit_target:
+                    actual_price = float(act_row['actual_value'])
+                    # Check stop loss first (price went up for SELL)
+                    if actual_price >= stop_loss_price:
                         exit_time = act_row['timestamp']
-                        exit_value = float(act_row['actual_value'])
+                        exit_value = actual_price
                         exit_found = True
+                        exit_reason = 'STOP_LOSS'
+                        break
+                    # Check target (price went down for SELL)
+                    if actual_price <= target_price:
+                        exit_time = act_row['timestamp']
+                        exit_value = actual_price
+                        exit_found = True
+                        exit_reason = 'TARGET'
                         break
                 
                 if exit_found:
@@ -396,7 +451,8 @@ class TradingStrategy:
                         'exit_value': exit_value,
                         'pnl': pnl,
                         'touch_type': 'MAX',
-                        'signal': 'SELL'
+                        'signal': 'SELL',
+                        'exit_reason': exit_reason
                     }
             
             elif first_touch == 'MIN' and first_touch_value is not None:
@@ -404,11 +460,12 @@ class TradingStrategy:
                 norm_touch_result['signal'] = 'BUY'
                 norm_touch_result['touch_time'] = first_touch_time
                 
-                # Entry at touch point, exit at entry + 30 points (target profit)
+                # Entry at touch point
                 entry_value = float(first_touch_value)
-                exit_target = entry_value + 30  # Target 30 points profit on long
+                target_price = entry_value + config.NORM_TOUCH_TARGET_POINTS  # Target profit
+                stop_loss_price = entry_value - config.STOP_LOSS_POINTS  # Stop loss
                 
-                # Find when actual reaches exit target
+                # Find when actual reaches target OR stop loss (whichever first)
                 all_actuals_after = self.market_data.actuals[
                     self.market_data.actuals['timestamp'] >= first_touch_time
                 ]
@@ -416,11 +473,22 @@ class TradingStrategy:
                 exit_found = False
                 exit_time = None
                 exit_value = None
+                exit_reason = None
                 for _, act_row in all_actuals_after.iterrows():
-                    if act_row['actual_value'] >= exit_target:
+                    actual_price = float(act_row['actual_value'])
+                    # Check stop loss first (price went down for BUY)
+                    if actual_price <= stop_loss_price:
                         exit_time = act_row['timestamp']
-                        exit_value = float(act_row['actual_value'])
+                        exit_value = actual_price
                         exit_found = True
+                        exit_reason = 'STOP_LOSS'
+                        break
+                    # Check target (price went up for BUY)
+                    if actual_price >= target_price:
+                        exit_time = act_row['timestamp']
+                        exit_value = actual_price
+                        exit_found = True
+                        exit_reason = 'TARGET'
                         break
                 
                 if exit_found:
@@ -432,10 +500,11 @@ class TradingStrategy:
                         'exit_value': exit_value,
                         'pnl': pnl,
                         'touch_type': 'MIN',
-                        'signal': 'BUY'
+                        'signal': 'BUY',
+                        'exit_reason': exit_reason
                     }
             
-            # Strategy: Norm Touch v2 - exit at predicted min/max time
+            # Strategy: Norm Touch v2 - exit at predicted min/max time (with stop loss)
             # Entry on MAX → exit at MIN time, Entry on MIN → exit at MAX time
             if first_touch is not None and first_touch_value is not None:
                 entry_value_v2 = float(first_touch_value)
@@ -446,16 +515,20 @@ class TradingStrategy:
                     _, exit_value_v2 = self.market_data.get_actual_at_time(exit_time_v2)
                     
                     if exit_value_v2 is not None:
-                        pnl_v2 = entry_value_v2 - exit_value_v2 - config.TRANSACTION_COST - config.SLIPPAGE
+                        final_exit_time_v2, final_exit_value_v2, exit_reason_v2 = check_stop_loss(
+                            first_touch_time, entry_value_v2, exit_time_v2, float(exit_value_v2), 'SELL'
+                        )
+                        pnl_v2 = entry_value_v2 - final_exit_value_v2 - config.TRANSACTION_COST - config.SLIPPAGE
                         strategies['strategy_norm_touch_v2'] = {
                             'entry_time': first_touch_time,
                             'entry_value': entry_value_v2,
-                            'exit_time': exit_time_v2,
-                            'exit_value': float(exit_value_v2),
+                            'exit_time': final_exit_time_v2,
+                            'exit_value': float(final_exit_value_v2),
                             'pnl': pnl_v2,
                             'touch_type': 'MAX',
                             'exit_at': 'MIN_TIME',
-                            'signal': 'SELL'
+                            'signal': 'SELL',
+                            'exit_reason': exit_reason_v2
                         }
                 
                 elif first_touch == 'MIN':
@@ -464,16 +537,20 @@ class TradingStrategy:
                     _, exit_value_v2 = self.market_data.get_actual_at_time(exit_time_v2)
                     
                     if exit_value_v2 is not None:
-                        pnl_v2 = exit_value_v2 - entry_value_v2 - config.TRANSACTION_COST - config.SLIPPAGE
+                        final_exit_time_v2, final_exit_value_v2, exit_reason_v2 = check_stop_loss(
+                            first_touch_time, entry_value_v2, exit_time_v2, float(exit_value_v2), 'BUY'
+                        )
+                        pnl_v2 = final_exit_value_v2 - entry_value_v2 - config.TRANSACTION_COST - config.SLIPPAGE
                         strategies['strategy_norm_touch_v2'] = {
                             'entry_time': first_touch_time,
                             'entry_value': entry_value_v2,
-                            'exit_time': exit_time_v2,
-                            'exit_value': float(exit_value_v2),
+                            'exit_time': final_exit_time_v2,
+                            'exit_value': float(final_exit_value_v2),
                             'pnl': pnl_v2,
                             'touch_type': 'MIN',
                             'exit_at': 'MAX_TIME',
-                            'signal': 'BUY'
+                            'signal': 'BUY',
+                            'exit_reason': exit_reason_v2
                         }
         
         # Order min/max by time (which occurred first)
@@ -484,7 +561,20 @@ class TradingStrategy:
             first_event = {'type': 'MAX', 'time': max_row['timestamp'], 'prediction': float(max_row['predictions']), 'actual': max_actual_value}
             second_event = {'type': 'MIN', 'time': min_row['timestamp'], 'prediction': float(min_row['predictions']), 'actual': min_actual_value}
         
-        # Get actuals for the last 5 minutes before the prediction window (for chart display)
+        # Get actuals for the entire chart period (5 min before + during prediction window)
+        lookback_start = start - timedelta(minutes=5)
+        actuals_full_period = self.market_data.actuals[
+            (self.market_data.actuals['timestamp'] >= lookback_start) & 
+            (self.market_data.actuals['timestamp'] <= end)
+        ]
+        actuals_chart_list = []
+        for _, row in actuals_full_period.iterrows():
+            actuals_chart_list.append({
+                'timestamp': row['timestamp'],
+                'actual_value': float(row['actual_value'])
+            })
+        
+        # Also keep actuals before for normalized touch calculation
         actuals_before_5min = self.market_data.get_actuals_before_time(start, lookback_minutes=5)
         actuals_before_list = []
         for _, row in actuals_before_5min.iterrows():
@@ -497,6 +587,7 @@ class TradingStrategy:
             'window_start': start,
             'window_end': end,
             'predictions': window_df.to_dict('records'),
+            'actuals_chart': actuals_chart_list,
             'actuals_before': actuals_before_list,
             'actuals_before_count': len(actuals_before_list),
             'min_prediction': {

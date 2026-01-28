@@ -96,9 +96,17 @@ def analyze():
         'predictions': [
             {
                 'time': p['timestamp'].isoformat() if isinstance(p['timestamp'], datetime) else p['timestamp'],
-                'value': float(p['predictions'])
+                'value': float(p['predictions']),
+                'insert_date_time': p['insert_date_time'].isoformat() if hasattr(p.get('insert_date_time'), 'isoformat') else str(p.get('insert_date_time', ''))
             }
             for p in analysis['predictions']
+        ],
+        'actuals_chart': [
+            {
+                'time': a['timestamp'].isoformat() if isinstance(a['timestamp'], datetime) else a['timestamp'],
+                'value': float(a['actual_value'])
+            }
+            for a in analysis.get('actuals_chart', [])
         ],
         'actuals_before': [
             {
@@ -155,7 +163,9 @@ def analyze():
             'entry_value': float(strategy_data['entry_value']),
             'exit_time': strategy_data['exit_time'].isoformat(),
             'exit_value': float(strategy_data['exit_value']),
-            'pnl': float(strategy_data['pnl'])
+            'pnl': float(strategy_data['pnl']),
+            'signal': strategy_data.get('signal'),
+            'exit_reason': strategy_data.get('exit_reason')
         }
     
     return jsonify(result)
@@ -201,8 +211,17 @@ def get_summary():
         if analysis:
             for key in strategy_keys:
                 if key in analysis['strategies']:
-                    pnl = float(analysis['strategies'][key]['pnl'])
-                    row['strategies'][key] = pnl
+                    strat = analysis['strategies'][key]
+                    pnl = float(strat['pnl'])
+                    row['strategies'][key] = {
+                        'pnl': pnl,
+                        'entry_time': strat['entry_time'].isoformat() if hasattr(strat['entry_time'], 'isoformat') else str(strat['entry_time']),
+                        'entry_value': float(strat['entry_value']),
+                        'exit_time': strat['exit_time'].isoformat() if hasattr(strat['exit_time'], 'isoformat') else str(strat['exit_time']),
+                        'exit_value': float(strat['exit_value']),
+                        'exit_reason': strat.get('exit_reason'),
+                        'signal': strat.get('signal')
+                    }
                     totals[key] += pnl
                     counts[key] += 1
                 else:

@@ -38,7 +38,7 @@
         }
         
         .container {
-            max-width: 1500px;
+            max-width: 1800px;
             margin: 0 auto;
             padding: 30px;
         }
@@ -802,17 +802,18 @@
                             <thead>
                                 <tr>
                                     <th>Strategy</th>
-                                    <th>Description</th>
+                                    <th>Signal</th>
                                     <th>Entry Time</th>
                                     <th>Entry Value</th>
                                     <th>Exit Time</th>
                                     <th>Exit Value</th>
+                                    <th>Exit Reason</th>
                                     <th>P&L</th>
                                 </tr>
                             </thead>
                             <tbody id="strategiesTable">
                                 <tr>
-                                    <td colspan="7" class="loading">
+                                    <td colspan="8" class="loading">
                                         <span class="loading-spinner"></span>Loading strategies...
                                     </td>
                                 </tr>
@@ -874,6 +875,26 @@
                                 <span>Signal</span>
                             </label>
                             <label class="column-checkbox">
+                                <input type="checkbox" id="col-entry_time" checked onchange="updateColumnVisibility()">
+                                <span>Entry Time</span>
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" id="col-entry_value" checked onchange="updateColumnVisibility()">
+                                <span>Entry Value</span>
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" id="col-exit_time" checked onchange="updateColumnVisibility()">
+                                <span>Exit Time</span>
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" id="col-exit_value" checked onchange="updateColumnVisibility()">
+                                <span>Exit Value</span>
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" id="col-exit_reason" checked onchange="updateColumnVisibility()">
+                                <span>Exit Reason</span>
+                            </label>
+                            <label class="column-checkbox">
                                 <input type="checkbox" id="col-strategy_1" checked onchange="updateColumnVisibility()">
                                 <span>Min/Max Exit</span>
                             </label>
@@ -914,8 +935,24 @@
                                 <span>Norm Touch (±30pt)</span>
                             </label>
                             <label class="column-checkbox">
+                                <input type="checkbox" id="col-norm_touch_entry" checked onchange="updateColumnVisibility()">
+                                <span>NT Entry</span>
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" id="col-norm_touch_exit" checked onchange="updateColumnVisibility()">
+                                <span>NT Exit</span>
+                            </label>
+                            <label class="column-checkbox">
                                 <input type="checkbox" id="col-strategy_norm_touch_v2" checked onchange="updateColumnVisibility()">
                                 <span>Norm Touch v2</span>
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" id="col-norm_v2_entry" checked onchange="updateColumnVisibility()">
+                                <span>NT2 Entry</span>
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" id="col-norm_v2_exit" checked onchange="updateColumnVisibility()">
+                                <span>NT2 Exit</span>
                             </label>
                         </div>
                     </div>
@@ -928,6 +965,11 @@
                                 <th>Time Window</th>
                                 <th class="text-center" data-col="pred_diff">Pred Diff</th>
                                 <th class="text-center" data-col="signal">Signal</th>
+                                <th class="text-center" data-col="entry_time">Entry Time</th>
+                                <th class="text-center" data-col="entry_value">Entry Value</th>
+                                <th class="text-center" data-col="exit_time">Exit Time</th>
+                                <th class="text-center" data-col="exit_value">Exit Value</th>
+                                <th class="text-center" data-col="exit_reason">Exit Reason</th>
                                 <th class="text-center" data-col="strategy_1">Min/Max Exit</th>
                                 <th class="text-center" data-col="strategy_2_1min">Exit 1min</th>
                                 <th class="text-center" data-col="strategy_2_2min">Exit 2min</th>
@@ -938,12 +980,16 @@
                                 <th class="text-center" data-col="strategy_3_2pt">2pt Target</th>
                                 <th class="text-center" data-col="strategy_3_3pt">3pt Target</th>
                                 <th class="text-center" data-col="strategy_norm_touch">Norm Touch</th>
+                                <th class="text-center" data-col="norm_touch_entry">NT Entry</th>
+                                <th class="text-center" data-col="norm_touch_exit">NT Exit</th>
                                 <th class="text-center" data-col="strategy_norm_touch_v2">Norm v2</th>
+                                <th class="text-center" data-col="norm_v2_entry">NT2 Entry</th>
+                                <th class="text-center" data-col="norm_v2_exit">NT2 Exit</th>
                             </tr>
                         </thead>
                         <tbody id="summaryTable">
                             <tr>
-                                <td colspan="14" class="loading">
+                                <td colspan="23" class="loading">
                                     <span class="loading-spinner"></span>Loading summary...
                                 </td>
                             </tr>
@@ -1045,7 +1091,7 @@
         });
         
         function updateColumnVisibility() {
-            const columns = ['pred_diff', 'signal', 'strategy_1', 'strategy_2_1min', 'strategy_2_2min', 'strategy_2_3min', 'strategy_2_4min', 'strategy_2_5min', 'strategy_2_6min', 'strategy_3_2pt', 'strategy_3_3pt', 'strategy_norm_touch', 'strategy_norm_touch_v2'];
+            const columns = ['pred_diff', 'signal', 'entry_time', 'entry_value', 'exit_time', 'exit_value', 'exit_reason', 'strategy_1', 'strategy_2_1min', 'strategy_2_2min', 'strategy_2_3min', 'strategy_2_4min', 'strategy_2_5min', 'strategy_2_6min', 'strategy_3_2pt', 'strategy_3_3pt', 'strategy_norm_touch', 'norm_touch_entry', 'norm_touch_exit', 'strategy_norm_touch_v2', 'norm_v2_entry', 'norm_v2_exit'];
             
             columns.forEach(col => {
                 const checkbox = document.getElementById(`col-${col}`);
@@ -1133,24 +1179,69 @@
             summaryData = data;
             let html = '';
             
+            const formatTime = (isoString) => {
+                if (!isoString) return '-';
+                const d = new Date(isoString);
+                return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            };
+            
             // Data rows
             for (const row of data.rows) {
                 const signalClass = row.signal === 'BUY' ? 'buy' : 'sell';
                 const diff = row.difference;
                 
+                // Get entry/exit info from strategy_1 (primary strategy)
+                const primaryStrat = row.strategies['strategy_1'];
+                const entryTime = primaryStrat ? formatTime(primaryStrat.entry_time) : '-';
+                const entryValue = primaryStrat ? primaryStrat.entry_value.toFixed(2) : '-';
+                const exitTime = primaryStrat ? formatTime(primaryStrat.exit_time) : '-';
+                const exitValue = primaryStrat ? primaryStrat.exit_value.toFixed(2) : '-';
+                const exitReason = primaryStrat ? (primaryStrat.exit_reason || '-') : '-';
+                const exitReasonClass = exitReason === 'STOP_LOSS' ? 'pnl-negative' : (exitReason === 'TARGET' ? 'pnl-positive' : '');
+                
                 html += `<tr>`;
                 html += `<td class="mono">${row.time_window}</td>`;
                 html += `<td class="text-center mono diff-value" data-col="pred_diff">${diff !== null ? diff.toFixed(2) : '-'}</td>`;
                 html += `<td class="text-center" data-col="signal"><span class="signal-mini ${signalClass}">${row.signal || '-'}</span></td>`;
+                html += `<td class="text-center mono" data-col="entry_time">${entryTime}</td>`;
+                html += `<td class="text-center mono" data-col="entry_value">${entryValue}</td>`;
+                html += `<td class="text-center mono" data-col="exit_time">${exitTime}</td>`;
+                html += `<td class="text-center mono" data-col="exit_value">${exitValue}</td>`;
+                html += `<td class="text-center mono ${exitReasonClass}" data-col="exit_reason">${exitReason}</td>`;
                 
                 for (const key of data.strategy_keys) {
-                    const pnl = row.strategies[key];
-                    if (pnl !== null) {
+                    const strat = row.strategies[key];
+                    if (strat !== null) {
+                        const pnl = strat.pnl;
                         const pnlClass = pnl >= 0 ? 'pnl-positive' : 'pnl-negative';
                         const sign = pnl >= 0 ? '+' : '';
                         html += `<td class="text-center mono ${pnlClass}" data-col="${key}">${sign}${pnl.toFixed(2)}</td>`;
+                        
+                        // Add entry/exit columns for Norm Touch strategies
+                        if (key === 'strategy_norm_touch') {
+                            const ntEntryTime = strat.entry_time ? formatTime(strat.entry_time) : '-';
+                            const ntExitTime = strat.exit_time ? formatTime(strat.exit_time) : '-';
+                            html += `<td class="text-center mono" data-col="norm_touch_entry">${ntEntryTime}</td>`;
+                            html += `<td class="text-center mono" data-col="norm_touch_exit">${ntExitTime}</td>`;
+                        }
+                        if (key === 'strategy_norm_touch_v2') {
+                            const nt2EntryTime = strat.entry_time ? formatTime(strat.entry_time) : '-';
+                            const nt2ExitTime = strat.exit_time ? formatTime(strat.exit_time) : '-';
+                            html += `<td class="text-center mono" data-col="norm_v2_entry">${nt2EntryTime}</td>`;
+                            html += `<td class="text-center mono" data-col="norm_v2_exit">${nt2ExitTime}</td>`;
+                        }
                     } else {
                         html += `<td class="text-center" data-col="${key}" style="color: var(--text-secondary);">-</td>`;
+                        
+                        // Add empty entry/exit columns for Norm Touch strategies
+                        if (key === 'strategy_norm_touch') {
+                            html += `<td class="text-center" data-col="norm_touch_entry" style="color: var(--text-secondary);">-</td>`;
+                            html += `<td class="text-center" data-col="norm_touch_exit" style="color: var(--text-secondary);">-</td>`;
+                        }
+                        if (key === 'strategy_norm_touch_v2') {
+                            html += `<td class="text-center" data-col="norm_v2_entry" style="color: var(--text-secondary);">-</td>`;
+                            html += `<td class="text-center" data-col="norm_v2_exit" style="color: var(--text-secondary);">-</td>`;
+                        }
                     }
                 }
                 
@@ -1162,12 +1253,27 @@
             html += `<td><strong>GRAND TOTAL</strong></td>`;
             html += `<td data-col="pred_diff"></td>`;
             html += `<td data-col="signal"></td>`;
+            html += `<td data-col="entry_time"></td>`;
+            html += `<td data-col="entry_value"></td>`;
+            html += `<td data-col="exit_time"></td>`;
+            html += `<td data-col="exit_value"></td>`;
+            html += `<td data-col="exit_reason"></td>`;
             
             for (const key of data.strategy_keys) {
                 const total = data.totals[key];
                 const pnlClass = total >= 0 ? 'pnl-positive' : 'pnl-negative';
                 const sign = total >= 0 ? '+' : '';
                 html += `<td class="text-center mono ${pnlClass}" data-col="${key}">${sign}${total.toFixed(2)}</td>`;
+                
+                // Add empty entry/exit columns for Norm Touch in total row
+                if (key === 'strategy_norm_touch') {
+                    html += `<td data-col="norm_touch_entry"></td>`;
+                    html += `<td data-col="norm_touch_exit"></td>`;
+                }
+                if (key === 'strategy_norm_touch_v2') {
+                    html += `<td data-col="norm_v2_entry"></td>`;
+                    html += `<td data-col="norm_v2_exit"></td>`;
+                }
             }
             
             html += `</tr>`;
@@ -1218,40 +1324,59 @@
                 chart.destroy();
             }
             
-            // Build combined labels: actuals (before) + predictions
-            const actualsLabels = (data.actuals_before || []).map(a => {
-                const d = new Date(a.time);
-                return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            // Get all actuals for the entire chart period (before + during window)
+            const actualsChart = data.actuals_chart || [];
+            const predictions = data.predictions || [];
+            
+            // Create a combined time series with all unique times
+            const allTimes = new Map();
+            
+            // Add actuals times
+            actualsChart.forEach(a => {
+                const time = new Date(a.time).getTime();
+                if (!allTimes.has(time)) {
+                    allTimes.set(time, { time: a.time, actual: a.value, prediction: null });
+                } else {
+                    allTimes.get(time).actual = a.value;
+                }
             });
-            const predictionsLabels = data.predictions.map(p => {
-                const d = new Date(p.time);
-                return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            
+            // Add predictions times
+            predictions.forEach(p => {
+                const time = new Date(p.time).getTime();
+                if (!allTimes.has(time)) {
+                    allTimes.set(time, { time: p.time, actual: null, prediction: p.value });
+                } else {
+                    allTimes.get(time).prediction = p.value;
+                }
             });
             
-            // Combined labels
-            const allLabels = [...actualsLabels, ...predictionsLabels];
+            // Sort by time and create arrays
+            const sortedData = Array.from(allTimes.values()).sort((a, b) => 
+                new Date(a.time).getTime() - new Date(b.time).getTime()
+            );
             
-            // Actuals data: values for actuals positions, null for predictions positions
-            const actualsData = (data.actuals_before || []).map(a => a.value);
-            const actualsWithNulls = [...actualsData, ...Array(data.predictions.length).fill(null)];
+            const allLabels = sortedData.map(d => {
+                const date = new Date(d.time);
+                return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            });
             
-            // Calculate average of last 5 actual values for Y-axis range
-            const last5Actuals = actualsData.slice(-5);
-            const actualsAvg = last5Actuals.length > 0 
-                ? last5Actuals.reduce((sum, val) => sum + val, 0) / last5Actuals.length 
+            const actualsData = sortedData.map(d => d.actual);
+            const predictionsData = sortedData.map(d => d.prediction);
+            
+            // Calculate average of actuals for Y-axis range
+            const validActuals = actualsData.filter(v => v !== null);
+            const actualsAvg = validActuals.length > 0 
+                ? validActuals.reduce((sum, val) => sum + val, 0) / validActuals.length 
                 : 0;
             const y1Min = actualsAvg - 50;
             const y1Max = actualsAvg + 50;
             
-            // Predictions data: null for actuals positions, values for predictions positions
-            const predictionsData = data.predictions.map(p => p.value);
-            const predictionsWithNulls = [...Array(actualsLabels.length).fill(null), ...predictionsData];
-            
-            // Min/Max horizontal lines (only in predictions area)
+            // Min/Max horizontal lines (across full chart)
             const minValue = data.min_prediction.value;
             const maxValue = data.max_prediction.value;
-            const minLine = [...Array(actualsLabels.length).fill(null), ...Array(data.predictions.length).fill(minValue)];
-            const maxLine = [...Array(actualsLabels.length).fill(null), ...Array(data.predictions.length).fill(maxValue)];
+            const minLine = sortedData.map(() => minValue);
+            const maxLine = sortedData.map(() => maxValue);
             
             const gradient = ctx.createLinearGradient(0, 0, 0, 350);
             gradient.addColorStop(0, 'rgba(6, 214, 160, 0.3)');
@@ -1263,8 +1388,8 @@
                     labels: allLabels,
                     datasets: [
                         {
-                            label: 'Actuals (5min before)',
-                            data: actualsWithNulls,
+                            label: 'Actuals',
+                            data: actualsData,
                             borderColor: '#ff9f1c',
                             backgroundColor: 'rgba(255, 159, 28, 0.1)',
                             tension: 0.4,
@@ -1279,7 +1404,7 @@
                         },
                         {
                             label: 'Predictions',
-                            data: predictionsWithNulls,
+                            data: predictionsData,
                             borderColor: '#06d6a0',
                             backgroundColor: gradient,
                             tension: 0.4,
@@ -1377,7 +1502,7 @@
                             max: y1Max,
                             title: {
                                 display: true,
-                                text: `Actuals (avg ±50)`,
+                                text: 'Actuals',
                                 color: '#ff9f1c',
                                 font: { family: 'Sora', size: 11 }
                             },
@@ -1455,7 +1580,24 @@
                 return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
             };
             
+            const formatDateTime = (isoString) => {
+                if (!isoString) return 'N/A';
+                const d = new Date(isoString);
+                return d.toLocaleString('en-US', { 
+                    month: 'short', day: 'numeric', 
+                    hour: '2-digit', minute: '2-digit', second: '2-digit' 
+                });
+            };
+            
+            // Get first prediction's insert_date_time
+            const firstPrediction = data.predictions && data.predictions.length > 0 ? data.predictions[0] : null;
+            const insertDateTime = firstPrediction ? formatDateTime(firstPrediction.insert_date_time) : 'N/A';
+            
             document.getElementById('minMaxInfo').innerHTML = `
+                <div class="info-row" style="border-bottom: 2px solid var(--accent-cyan); padding-bottom: 12px; margin-bottom: 10px;">
+                    <span class="info-label">Prediction Entered</span>
+                    <span class="info-value mono" style="color: var(--accent-cyan); font-size: 12px;">${insertDateTime}</span>
+                </div>
                 <div class="info-row">
                     <span class="info-label">Min Prediction</span>
                     <span class="info-value">${data.min_prediction.value.toFixed(2)}</span>
@@ -1550,26 +1692,38 @@
                 return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
             };
             
+            // Get the main signal from analysis
+            const mainSignal = data.signal_time_based;
+            
             for (const [strategyKey, strategyData] of Object.entries(data.strategies)) {
                 const strategyInfo = strategies[strategyKey] || { name: strategyKey, description: '' };
                 const pnlClass = strategyData.pnl >= 0 ? 'pnl-positive' : 'pnl-negative';
                 const pnlSign = strategyData.pnl >= 0 ? '+' : '';
                 
+                // Get signal for this strategy (use strategy-specific if available, else main signal)
+                const signal = strategyData.signal || mainSignal;
+                const signalClass = signal === 'BUY' ? 'buy' : 'sell';
+                
+                // Get exit reason if available
+                const exitReason = strategyData.exit_reason || '-';
+                const exitReasonClass = exitReason === 'STOP_LOSS' ? 'pnl-negative' : (exitReason === 'TARGET' ? 'pnl-positive' : '');
+                
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td><span class="strategy-name">${strategyInfo.name}</span></td>
-                    <td><span class="strategy-desc">${strategyInfo.description}</span></td>
+                    <td><span class="signal-mini ${signalClass}">${signal}</span></td>
                     <td class="mono">${formatTime(strategyData.entry_time)}</td>
                     <td class="mono">${strategyData.entry_value.toFixed(2)}</td>
                     <td class="mono">${formatTime(strategyData.exit_time)}</td>
                     <td class="mono">${strategyData.exit_value.toFixed(2)}</td>
+                    <td class="mono ${exitReasonClass}">${exitReason}</td>
                     <td class="${pnlClass} mono">${pnlSign}${strategyData.pnl.toFixed(2)}</td>
                 `;
                 tbody.appendChild(row);
             }
             
             if (Object.keys(data.strategies).length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="loading">No strategies available for this window</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" class="loading">No strategies available for this window</td></tr>';
             }
         }
         

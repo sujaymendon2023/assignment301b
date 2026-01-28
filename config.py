@@ -16,7 +16,8 @@ SELECT
         + INTERVAL '15 minutes',
         'HH24MI'
     ) AS time__,
-    predictions
+    predictions,
+    insert_date_time
 FROM predictions
 ORDER BY date__, time__;
 """
@@ -93,8 +94,10 @@ STRATEGIES = {
 # Normalized Touch Strategy Parameters
 NORM_TOUCH_TOLERANCE = 0.05  # Tolerance for normalized comparison (5%)
 NORM_TOUCH_EXIT_TOLERANCE = 0.05  # Exit tolerance for v2 (5%)
-NORM_ACTUAL_LOOKBACK_MINUTES = 5  # Lookback window for actuals before prediction window
+NORM_ACTUAL_LOOKBACK_MINUTES = 2  # Lookback window for actuals before prediction window
+NORM_TOUCH_TARGET_POINTS = 30  # Target profit points for Norm Touch
 
 # Trading parameters
 TRANSACTION_COST = 0.05  # Transaction cost per trade
 SLIPPAGE = 0.1  # Slippage per trade
+STOP_LOSS_POINTS = 10  # Global stop loss for all strategies (in points)
