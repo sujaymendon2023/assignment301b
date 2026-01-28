@@ -200,11 +200,20 @@ def get_summary():
     for idx, (start, end) in enumerate(windows):
         analysis = trading_strategy.analyze_window(start, end)
         
+        # Get insert_date_time from first prediction in the window
+        insert_date_time = None
+        if analysis and 'predictions' in analysis and len(analysis['predictions']) > 0:
+            first_pred = analysis['predictions'][0]
+            if 'insert_date_time' in first_pred and first_pred['insert_date_time'] is not None:
+                idt = first_pred['insert_date_time']
+                insert_date_time = idt.isoformat() if hasattr(idt, 'isoformat') else str(idt)
+        
         row = {
             'index': idx,
             'time_window': f"{start.strftime('%H:%M')} - {end.strftime('%H:%M')}",
             'signal': analysis['signal_time_based'] if analysis else None,
             'difference': analysis['difference'] if analysis else None,
+            'insert_date_time': insert_date_time,
             'strategies': {}
         }
         

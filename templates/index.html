@@ -756,6 +756,7 @@
             <div class="tab-nav">
                 <button class="tab-btn active" onclick="switchTab('analysis')">📈 Analysis</button>
                 <button class="tab-btn" onclick="switchTab('summary')">📋 P&L Summary</button>
+                <button class="tab-btn" onclick="switchTab('normtouch')">🎯 Norm Touch P&L</button>
             </div>
             <div class="filters-row">
                 <div class="date-selector">
@@ -930,30 +931,6 @@
                                 <input type="checkbox" id="col-strategy_3_3pt" checked onchange="updateColumnVisibility()">
                                 <span>3pt Target</span>
                             </label>
-                            <label class="column-checkbox">
-                                <input type="checkbox" id="col-strategy_norm_touch" checked onchange="updateColumnVisibility()">
-                                <span>Norm Touch (±30pt)</span>
-                            </label>
-                            <label class="column-checkbox">
-                                <input type="checkbox" id="col-norm_touch_entry" checked onchange="updateColumnVisibility()">
-                                <span>NT Entry</span>
-                            </label>
-                            <label class="column-checkbox">
-                                <input type="checkbox" id="col-norm_touch_exit" checked onchange="updateColumnVisibility()">
-                                <span>NT Exit</span>
-                            </label>
-                            <label class="column-checkbox">
-                                <input type="checkbox" id="col-strategy_norm_touch_v2" checked onchange="updateColumnVisibility()">
-                                <span>Norm Touch v2</span>
-                            </label>
-                            <label class="column-checkbox">
-                                <input type="checkbox" id="col-norm_v2_entry" checked onchange="updateColumnVisibility()">
-                                <span>NT2 Entry</span>
-                            </label>
-                            <label class="column-checkbox">
-                                <input type="checkbox" id="col-norm_v2_exit" checked onchange="updateColumnVisibility()">
-                                <span>NT2 Exit</span>
-                            </label>
                         </div>
                     </div>
                 </div>
@@ -979,18 +956,53 @@
                                 <th class="text-center" data-col="strategy_2_6min">Exit 6min</th>
                                 <th class="text-center" data-col="strategy_3_2pt">2pt Target</th>
                                 <th class="text-center" data-col="strategy_3_3pt">3pt Target</th>
-                                <th class="text-center" data-col="strategy_norm_touch">Norm Touch</th>
-                                <th class="text-center" data-col="norm_touch_entry">NT Entry</th>
-                                <th class="text-center" data-col="norm_touch_exit">NT Exit</th>
-                                <th class="text-center" data-col="strategy_norm_touch_v2">Norm v2</th>
-                                <th class="text-center" data-col="norm_v2_entry">NT2 Entry</th>
-                                <th class="text-center" data-col="norm_v2_exit">NT2 Exit</th>
                             </tr>
                         </thead>
                         <tbody id="summaryTable">
                             <tr>
-                                <td colspan="23" class="loading">
+                                <td colspan="17" class="loading">
                                     <span class="loading-spinner"></span>Loading summary...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Norm Touch P&L Tab -->
+        <div id="tab-normtouch" class="tab-content">
+            <div class="summary-section">
+                <div class="summary-header">
+                    <div>
+                        <div class="summary-title">Norm Touch Strategy P&L</div>
+                        <div class="summary-subtitle">Normalized touch-based entry strategies with individual signals</div>
+                    </div>
+                </div>
+                
+                <div class="summary-table-wrapper">
+                    <table class="summary-table" id="normTouchTableEl">
+                        <thead>
+                            <tr>
+                                <th>Time Window</th>
+                                <th class="text-center">Insert Time</th>
+                                <th class="text-center">Pred Diff</th>
+                                <th class="text-center" style="background: rgba(6, 214, 160, 0.1);">NT Signal</th>
+                                <th class="text-center" style="background: rgba(6, 214, 160, 0.1);">NT Entry</th>
+                                <th class="text-center" style="background: rgba(6, 214, 160, 0.1);">NT Exit</th>
+                                <th class="text-center" style="background: rgba(6, 214, 160, 0.1);">NT Exit Reason</th>
+                                <th class="text-center" style="background: rgba(6, 214, 160, 0.1);">Norm Touch P&L</th>
+                                <th class="text-center" style="background: rgba(239, 71, 111, 0.1);">NT2 Signal</th>
+                                <th class="text-center" style="background: rgba(239, 71, 111, 0.1);">NT2 Entry</th>
+                                <th class="text-center" style="background: rgba(239, 71, 111, 0.1);">NT2 Exit</th>
+                                <th class="text-center" style="background: rgba(239, 71, 111, 0.1);">NT2 Exit Reason</th>
+                                <th class="text-center" style="background: rgba(239, 71, 111, 0.1);">Norm Touch v2 P&L</th>
+                            </tr>
+                        </thead>
+                        <tbody id="normTouchTable">
+                            <tr>
+                                <td colspan="13" class="loading">
+                                    <span class="loading-spinner"></span>Loading Norm Touch summary...
                                 </td>
                             </tr>
                         </tbody>
@@ -1006,6 +1018,8 @@
         let strategies = {};
         let summaryLoaded = false;
         let summaryData = null;
+        let normTouchLoaded = false;
+        let normTouchData = null;
         let currentIncrement = 15;
         let currentDate = null;
         
@@ -1041,6 +1055,7 @@
         function setDate(date) {
             currentDate = date;
             summaryLoaded = false;
+            normTouchLoaded = false;
             
             // Reload all data for the new date
             loadWindows().then(() => {
@@ -1048,6 +1063,10 @@
                 // Reload summary if on summary tab
                 if (document.getElementById('tab-summary').classList.contains('active')) {
                     loadSummary();
+                }
+                // Reload norm touch if on normtouch tab
+                if (document.getElementById('tab-normtouch').classList.contains('active')) {
+                    loadNormTouchSummary();
                 }
             });
         }
@@ -1066,11 +1085,16 @@
             
             // Reload windows and data
             summaryLoaded = false;
+            normTouchLoaded = false;
             loadWindows().then(() => {
                 updateAnalysis();
                 // Reload summary if on summary tab
                 if (document.getElementById('tab-summary').classList.contains('active')) {
                     loadSummary();
+                }
+                // Reload norm touch if on normtouch tab
+                if (document.getElementById('tab-normtouch').classList.contains('active')) {
+                    loadNormTouchSummary();
                 }
             });
         }
@@ -1091,7 +1115,7 @@
         });
         
         function updateColumnVisibility() {
-            const columns = ['pred_diff', 'signal', 'entry_time', 'entry_value', 'exit_time', 'exit_value', 'exit_reason', 'strategy_1', 'strategy_2_1min', 'strategy_2_2min', 'strategy_2_3min', 'strategy_2_4min', 'strategy_2_5min', 'strategy_2_6min', 'strategy_3_2pt', 'strategy_3_3pt', 'strategy_norm_touch', 'norm_touch_entry', 'norm_touch_exit', 'strategy_norm_touch_v2', 'norm_v2_entry', 'norm_v2_exit'];
+            const columns = ['pred_diff', 'signal', 'entry_time', 'entry_value', 'exit_time', 'exit_value', 'exit_reason', 'strategy_1', 'strategy_2_1min', 'strategy_2_2min', 'strategy_2_3min', 'strategy_2_4min', 'strategy_2_5min', 'strategy_2_6min', 'strategy_3_2pt', 'strategy_3_3pt'];
             
             columns.forEach(col => {
                 const checkbox = document.getElementById(`col-${col}`);
@@ -1124,6 +1148,11 @@
             // Load summary data if switching to summary tab
             if (tabName === 'summary' && !summaryLoaded) {
                 loadSummary();
+            }
+            
+            // Load norm touch data if switching to normtouch tab
+            if (tabName === 'normtouch' && !normTouchLoaded) {
+                loadNormTouchSummary();
             }
         }
         
@@ -1174,6 +1203,127 @@
             }
         }
         
+        async function loadNormTouchSummary() {
+            try {
+                const dateParam = currentDate ? `&date=${currentDate}` : '';
+                const response = await fetch(`/api/summary?increment=${currentIncrement}${dateParam}`);
+                const data = await response.json();
+                
+                updateNormTouchTable(data);
+                normTouchLoaded = true;
+            } catch (error) {
+                console.error('Failed to load norm touch summary:', error);
+            }
+        }
+        
+        function updateNormTouchTable(data) {
+            const tbody = document.getElementById('normTouchTable');
+            normTouchData = data;
+            let html = '';
+            
+            const formatTime = (isoString) => {
+                if (!isoString) return '-';
+                const d = new Date(isoString);
+                return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            };
+            
+            const formatDateTime = (isoString) => {
+                if (!isoString) return '-';
+                const d = new Date(isoString);
+                return d.toLocaleString('en-US', { 
+                    month: 'short', day: 'numeric', 
+                    hour: '2-digit', minute: '2-digit' 
+                });
+            };
+            
+            let ntTotal = 0;
+            let nt2Total = 0;
+            
+            // Data rows
+            for (const row of data.rows) {
+                const diff = row.difference;
+                const ntStrat = row.strategies['strategy_norm_touch'];
+                const nt2Strat = row.strategies['strategy_norm_touch_v2'];
+                
+                html += `<tr>`;
+                html += `<td class="mono">${row.time_window}</td>`;
+                
+                // Insert Time - use the insert_date_time from the response
+                const insertTime = row.insert_date_time ? formatDateTime(row.insert_date_time) : '-';
+                html += `<td class="text-center mono" style="font-size: 11px;">${insertTime}</td>`;
+                
+                // Pred Diff
+                html += `<td class="text-center mono">${diff ? diff.toFixed(2) : '-'}</td>`;
+                
+                // Norm Touch columns
+                if (ntStrat) {
+                    const ntSignalClass = ntStrat.signal === 'BUY' ? 'buy' : 'sell';
+                    const ntPnl = ntStrat.pnl;
+                    const ntPnlClass = ntPnl >= 0 ? 'pnl-positive' : 'pnl-negative';
+                    const ntSign = ntPnl >= 0 ? '+' : '';
+                    ntTotal += ntPnl;
+                    
+                    html += `<td class="text-center signal-badge ${ntSignalClass}" style="background: rgba(6, 214, 160, 0.05);">${ntStrat.signal || '-'}</td>`;
+                    html += `<td class="text-center mono" style="background: rgba(6, 214, 160, 0.05);">${formatTime(ntStrat.entry_time)}</td>`;
+                    html += `<td class="text-center mono" style="background: rgba(6, 214, 160, 0.05);">${formatTime(ntStrat.exit_time)}</td>`;
+                    html += `<td class="text-center mono" style="background: rgba(6, 214, 160, 0.05); font-size: 11px;">${ntStrat.exit_reason || '-'}</td>`;
+                    html += `<td class="text-center mono ${ntPnlClass}" style="background: rgba(6, 214, 160, 0.05);">${ntSign}${ntPnl.toFixed(2)}</td>`;
+                } else {
+                    html += `<td class="text-center" style="background: rgba(6, 214, 160, 0.05); color: var(--text-secondary);">-</td>`;
+                    html += `<td class="text-center" style="background: rgba(6, 214, 160, 0.05); color: var(--text-secondary);">-</td>`;
+                    html += `<td class="text-center" style="background: rgba(6, 214, 160, 0.05); color: var(--text-secondary);">-</td>`;
+                    html += `<td class="text-center" style="background: rgba(6, 214, 160, 0.05); color: var(--text-secondary);">-</td>`;
+                    html += `<td class="text-center" style="background: rgba(6, 214, 160, 0.05); color: var(--text-secondary);">-</td>`;
+                }
+                
+                // Norm Touch v2 columns
+                if (nt2Strat) {
+                    const nt2SignalClass = nt2Strat.signal === 'BUY' ? 'buy' : 'sell';
+                    const nt2Pnl = nt2Strat.pnl;
+                    const nt2PnlClass = nt2Pnl >= 0 ? 'pnl-positive' : 'pnl-negative';
+                    const nt2Sign = nt2Pnl >= 0 ? '+' : '';
+                    nt2Total += nt2Pnl;
+                    
+                    html += `<td class="text-center signal-badge ${nt2SignalClass}" style="background: rgba(239, 71, 111, 0.05);">${nt2Strat.signal || '-'}</td>`;
+                    html += `<td class="text-center mono" style="background: rgba(239, 71, 111, 0.05);">${formatTime(nt2Strat.entry_time)}</td>`;
+                    html += `<td class="text-center mono" style="background: rgba(239, 71, 111, 0.05);">${formatTime(nt2Strat.exit_time)}</td>`;
+                    html += `<td class="text-center mono" style="background: rgba(239, 71, 111, 0.05); font-size: 11px;">${nt2Strat.exit_reason || '-'}</td>`;
+                    html += `<td class="text-center mono ${nt2PnlClass}" style="background: rgba(239, 71, 111, 0.05);">${nt2Sign}${nt2Pnl.toFixed(2)}</td>`;
+                } else {
+                    html += `<td class="text-center" style="background: rgba(239, 71, 111, 0.05); color: var(--text-secondary);">-</td>`;
+                    html += `<td class="text-center" style="background: rgba(239, 71, 111, 0.05); color: var(--text-secondary);">-</td>`;
+                    html += `<td class="text-center" style="background: rgba(239, 71, 111, 0.05); color: var(--text-secondary);">-</td>`;
+                    html += `<td class="text-center" style="background: rgba(239, 71, 111, 0.05); color: var(--text-secondary);">-</td>`;
+                    html += `<td class="text-center" style="background: rgba(239, 71, 111, 0.05); color: var(--text-secondary);">-</td>`;
+                }
+                
+                html += `</tr>`;
+            }
+            
+            // Total row
+            const ntTotalClass = ntTotal >= 0 ? 'pnl-positive' : 'pnl-negative';
+            const nt2TotalClass = nt2Total >= 0 ? 'pnl-positive' : 'pnl-negative';
+            const ntTotalSign = ntTotal >= 0 ? '+' : '';
+            const nt2TotalSign = nt2Total >= 0 ? '+' : '';
+            
+            html += `<tr class="total-row">`;
+            html += `<td><strong>GRAND TOTAL</strong></td>`;
+            html += `<td></td><td></td>`;
+            html += `<td style="background: rgba(6, 214, 160, 0.1);"></td>`;
+            html += `<td style="background: rgba(6, 214, 160, 0.1);"></td>`;
+            html += `<td style="background: rgba(6, 214, 160, 0.1);"></td>`;
+            html += `<td style="background: rgba(6, 214, 160, 0.1);"></td>`;
+            html += `<td class="text-center mono ${ntTotalClass}" style="background: rgba(6, 214, 160, 0.1);"><strong>${ntTotalSign}${ntTotal.toFixed(2)}</strong></td>`;
+            html += `<td style="background: rgba(239, 71, 111, 0.1);"></td>`;
+            html += `<td style="background: rgba(239, 71, 111, 0.1);"></td>`;
+            html += `<td style="background: rgba(239, 71, 111, 0.1);"></td>`;
+            html += `<td style="background: rgba(239, 71, 111, 0.1);"></td>`;
+            html += `<td class="text-center mono ${nt2TotalClass}" style="background: rgba(239, 71, 111, 0.1);"><strong>${nt2TotalSign}${nt2Total.toFixed(2)}</strong></td>`;
+            html += `</tr>`;
+            
+            tbody.innerHTML = html;
+        }
+        
         function updateSummaryTable(data) {
             const tbody = document.getElementById('summaryTable');
             summaryData = data;
@@ -1216,32 +1366,8 @@
                         const pnlClass = pnl >= 0 ? 'pnl-positive' : 'pnl-negative';
                         const sign = pnl >= 0 ? '+' : '';
                         html += `<td class="text-center mono ${pnlClass}" data-col="${key}">${sign}${pnl.toFixed(2)}</td>`;
-                        
-                        // Add entry/exit columns for Norm Touch strategies
-                        if (key === 'strategy_norm_touch') {
-                            const ntEntryTime = strat.entry_time ? formatTime(strat.entry_time) : '-';
-                            const ntExitTime = strat.exit_time ? formatTime(strat.exit_time) : '-';
-                            html += `<td class="text-center mono" data-col="norm_touch_entry">${ntEntryTime}</td>`;
-                            html += `<td class="text-center mono" data-col="norm_touch_exit">${ntExitTime}</td>`;
-                        }
-                        if (key === 'strategy_norm_touch_v2') {
-                            const nt2EntryTime = strat.entry_time ? formatTime(strat.entry_time) : '-';
-                            const nt2ExitTime = strat.exit_time ? formatTime(strat.exit_time) : '-';
-                            html += `<td class="text-center mono" data-col="norm_v2_entry">${nt2EntryTime}</td>`;
-                            html += `<td class="text-center mono" data-col="norm_v2_exit">${nt2ExitTime}</td>`;
-                        }
                     } else {
                         html += `<td class="text-center" data-col="${key}" style="color: var(--text-secondary);">-</td>`;
-                        
-                        // Add empty entry/exit columns for Norm Touch strategies
-                        if (key === 'strategy_norm_touch') {
-                            html += `<td class="text-center" data-col="norm_touch_entry" style="color: var(--text-secondary);">-</td>`;
-                            html += `<td class="text-center" data-col="norm_touch_exit" style="color: var(--text-secondary);">-</td>`;
-                        }
-                        if (key === 'strategy_norm_touch_v2') {
-                            html += `<td class="text-center" data-col="norm_v2_entry" style="color: var(--text-secondary);">-</td>`;
-                            html += `<td class="text-center" data-col="norm_v2_exit" style="color: var(--text-secondary);">-</td>`;
-                        }
                     }
                 }
                 
@@ -1264,16 +1390,6 @@
                 const pnlClass = total >= 0 ? 'pnl-positive' : 'pnl-negative';
                 const sign = total >= 0 ? '+' : '';
                 html += `<td class="text-center mono ${pnlClass}" data-col="${key}">${sign}${total.toFixed(2)}</td>`;
-                
-                // Add empty entry/exit columns for Norm Touch in total row
-                if (key === 'strategy_norm_touch') {
-                    html += `<td data-col="norm_touch_entry"></td>`;
-                    html += `<td data-col="norm_touch_exit"></td>`;
-                }
-                if (key === 'strategy_norm_touch_v2') {
-                    html += `<td data-col="norm_v2_entry"></td>`;
-                    html += `<td data-col="norm_v2_exit"></td>`;
-                }
             }
             
             html += `</tr>`;

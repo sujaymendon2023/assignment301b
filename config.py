@@ -17,7 +17,7 @@ SELECT
         'HH24MI'
     ) AS time__,
     predictions,
-    insert_date_time
+    "Insert_date_time"
 FROM predictions
 ORDER BY date__, time__;
 """
